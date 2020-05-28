@@ -1,0 +1,8 @@
+<aura:component implements="lightning:isUrlAddressable">
+    <aura:attribute name="opportunityId" type="String" />
+    <aura:attribute name="equipmentSelection" type="String" />
+    <aura:handler name="init" value="{!this}" action="{!c.init}"/> 
+    <aura:handler name="change" value="{!v.pageReference}" action="{!c.onPageReferenceChange}"/>
+    <c:optimizeSystemSize opportunityId="{!v.opportunityId}"/>
+    <c:optimizeSystemSize equipmentSelection="{!v.equipmentSelection}"/>
+</aura:component>

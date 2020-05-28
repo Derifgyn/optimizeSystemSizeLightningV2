@@ -1,0 +1,51 @@
+<template>
+    <div class="optimize-system-size">
+        <div class="slds-page-header">
+            <div class="slds-page-header__row">
+                <div class="slds-page-header__col-title">
+                    <div class="slds-media">
+                        <div class="slds-media__body">
+                            <div class="slds-page-header__name">
+                                <div class="slds-page-header__name-title">
+                                    <h1>
+                                        <span class="slds-page-header__title slds-truncate" title="Appointment Details">Optimize System Size</span>
+                                    </h1>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <lightning-input type="number" name="totalUsage" label="Total usage:"></lightning-input>
+            <lightning-input type="number" name="desiredOffset" label="Desired offset %:"></lightning-input>
+            <lightning-record-edit-form
+                record-id={recordId}
+                object-api-name="Opportunity"
+            >
+                <lightning-input-field field-name="Equipment_Selection__c"></lightning-input-field>
+            </lightning-record-edit-form>
+        </div>
+
+        <div class="details-footer slds-m-top_small">
+            <template if:true={disabled}>
+                <lightning-spinner 
+                    class="slds-is-relative slds-m-right_x-large"
+                    variant="brand"
+                    alternative-text="Loading" 
+                    size="small"
+                >
+                </lightning-spinner>
+            </template>
+            <lightning-button
+                variant="brand"
+                name="update"
+                label="Save"
+                onclick={save}
+            >
+            </lightning-button>
+        </div>
+    </div>
+</template>
