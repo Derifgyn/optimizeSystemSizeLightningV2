@@ -15,9 +15,11 @@ export default class OptimizeSystemSize extends LightningElement {
     @track maxNumArrays;
     @track maxNumPanels;
     @track currentNumPanels;
-    @track pvArrays;
 
     @track error = false;
+    @track generatingProposal = false;
+    @track validProposal = false;
+    @track notCalcedProposal = true;
 
     @api recordId;
 
@@ -28,8 +30,6 @@ export default class OptimizeSystemSize extends LightningElement {
         }
     )
     opportunityHandler({error, data}) {
-        console.log('in here 1259');
-
         if (data) {
             console.log(JSON.stringify(data, undefined, 2));
             this.opportunity = Object.assign({}, data);
@@ -54,13 +54,21 @@ export default class OptimizeSystemSize extends LightningElement {
     }
 
     generateProposal() {
-        this.mapPVArrays();
+        this.notCalcedProposal = false;
+        this.generatingProposal = true;
+        this.proposedOffsetObj = {
+            proposedOffset: 0,
+            pvArrays: this.mapPVArrays(),
+            weightedTSRF: 0
+        };
 
         if (this.checkInputValid()) {
             this.proposedOffsetObj = this.generateProposedOffset(0, this.proposedOffsetObj); 
 
-            this.checkProposedOffsetValid();
+            this.validProposal = this.checkProposedOffsetValid();
         }
+
+        this.generatingProposal = false;
     }
 
     // Perform input validity check before offset generation, and show relevant messages
@@ -69,20 +77,24 @@ export default class OptimizeSystemSize extends LightningElement {
 
         if (this.totalUsage < 0) {
             // Show error
+            this.showToast('error', 'Total usage value needs to be greater than 0');
             valid = false;
         }
 
         if (this.desiredOffset <= 0) {
             // Show error
+            this.showToast('error', 'Desired offset value needs to be between 0 and 100');
             valid = false;
         }
 
         if (this.desiredOffset > 110) {
             // Show warning
+            this.showToast('warning', 'Desired offset > 100%, please make sure your entry is correct');
         }
 
         if (this.selectedPVModule == undefined || this.selectedPVModule.Name == '') {
             // Show error
+            this.showToast('error', 'Equipment Selection needs to be chosen');
             valid = false;
         }
 
@@ -96,18 +108,20 @@ export default class OptimizeSystemSize extends LightningElement {
                         inactivePVArrays += 1;
                     }
         
-                    if (pvArray.active == 'Yes' && pvArray.numberOfPanels > 0 ** (pvArray.tsrf <= 0 || pvArray.tsrf > 100 || pvArray.tsrf == undefined)) {
+                    if (pvArray.active == 'Yes' && pvArray.numberOfPanels > 0 && (pvArray.tsrf <= 0 || pvArray.tsrf > 100 || pvArray.tsrf == undefined)) {
                         invalidTSRFValue = true;
                     }
                 });
 
             if (inactivePVArrays > this.maxNumArrays) {
                 // Show error
+                this.showToast('error', 'No active arrays, please set at least one array to active with 1 or more panels');
                 valid = false;
             }
 
             if (invalidTSRFValue) {
                 // Show error
+                this.showToast('error', 'One or more arrays has an invalid TSRF value, must be between 0 and 100');
                 valid = false;
             }
         }
@@ -134,10 +148,8 @@ export default class OptimizeSystemSize extends LightningElement {
         this.equipmentSelection = '';
         
         if(this.opportunity.Equipment_Selection__c != null) {
-            console.log('equipment selection not null');
             this.equipmentSelection = this.opportunity.Equipment_Selection__c;
         } else {
-            console.log('equipment selection defaulting to LG Electronics 350');
             this.equipmentSelection = 'LG Electronics 350';
             this.opportunity.Equipment_Selection__C = this.equipmentSelection;
         }
@@ -158,7 +170,7 @@ export default class OptimizeSystemSize extends LightningElement {
     mapPVArrays() {
         this.maxNumPanels = 0;
         this.currentNumPanels = 0;
-        this.pvArrays = [];
+        let pvArrays = [];
 
         for (let i = 0; i < this.maxNumArrays; i++) { 
             let pvArray = {
@@ -169,7 +181,7 @@ export default class OptimizeSystemSize extends LightningElement {
                 tsrf: this.opportunity[`Array_${i + 1}_TSRF_Input__c`]
             }
 
-            this.pvArrays.push(pvArray);
+            pvArrays.push(pvArray);
 
             if (pvArray.active == 'Yes') {
                 this.maxNumPanels += pvArray.numberOfPanels;
@@ -177,18 +189,23 @@ export default class OptimizeSystemSize extends LightningElement {
             }
         }
 
-        this.pvArrays.sort((a, b) =>
+        pvArrays.sort((a, b) =>
            a.tsrf - b.tsrf
         );
+
+        return pvArrays;
     }
 
-    generateProposedOffset(attemptNum, lastProposedOffsetObj) {
+    generateProposedOffset(attemptNum, lpoToBeCopied) {
+        console.log(JSON.stringify(0, 2, attemptNum));
+
+        let lastProposedOffsetObj = Object.assign({}, lpoToBeCopied);
         let totalProduction = 0;
         let proposedOffset = 0;
         let weightedTSRF = 0;
-        panelRemoved = false;
+        let panelRemoved = false;
 
-        this.pvArrays
+        let pvArrays = lpoToBeCopied.pvArrays
             .filter(pvArray => pvArray.active == 'Yes')
             .map(pvArray => {
                 if (attemptNum > 0 && panelRemoved != true && pvArray.numberOfPanels - 1 >= 0) {
@@ -239,23 +256,27 @@ export default class OptimizeSystemSize extends LightningElement {
     }
 
     save() {
-        if (this.checkProposedOffsetValid()) {
-            // success msg
-
-            this.pvArrays.map(pvArray => {
+        if (this.validProposal) {
+            
+            this.proposedOffset.pvArrays.map(pvArray => {
                 this.opportunity[pvArray.numberOfPanelsFieldName] = pvArray.numberOfPanels;
             });
-
+            
             // update opportunity
-
-            // redirect if necessary
+            
+            // success msg
+            this.showToast('success', 'Successfully saved proposed offset');
         }
     }
 
-    cancel() {
-        // redirect if necessary
+    showToast(variant, message) {
+        const toast = new ShowToastEvent({
+            title: variant.charAt(0).toUpperCase() + variant.slice(1),
+            message,
+            variant
+        })
+        this.dispatchEvent(toast);
     }
-
 
     /**
      * NOTES:

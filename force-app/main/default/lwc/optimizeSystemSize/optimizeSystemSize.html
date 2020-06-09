@@ -29,6 +29,16 @@
             </lightning-record-edit-form>
         </div>
 
+        <div>
+            <template if:true={notCalcedProposal}>
+                <span>Proposed offset: Not yet calculated</span>
+            </template>
+            
+            <template if:true={validProposal}>
+                <span>Proposed offset: {proposedOffsetObj.proposedOffset}</span>
+            </template>
+        </div>
+
         <div class="details-footer slds-m-top_small">
             <template if:true={disabled}>
                 <lightning-spinner 
@@ -40,10 +50,19 @@
                 </lightning-spinner>
             </template>
             <lightning-button
+                variant="neutral"
+                name="generate"
+                label="Generate"
+                onclick={generateProposal}
+                disabled={generatingProposal}
+            >
+            </lightning-button>
+            <lightning-button
                 variant="brand"
                 name="update"
                 label="Save"
                 onclick={save}
+                enabled={validProposal}
             >
             </lightning-button>
         </div>
