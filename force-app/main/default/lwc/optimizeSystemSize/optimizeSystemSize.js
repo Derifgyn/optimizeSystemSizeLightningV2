@@ -63,6 +63,9 @@ export default class OptimizeSystemSize extends LightningElement {
         };
 
         if (this.checkInputValid()) {
+            console.log(JSON.stringify('input valid', 0, 2));
+            console.log('this.totalUsage:', this.totalUsage);
+
             this.proposedOffsetObj = this.generateProposedOffset(0, this.proposedOffsetObj); 
 
             this.validProposal = this.checkProposedOffsetValid();
@@ -75,13 +78,18 @@ export default class OptimizeSystemSize extends LightningElement {
     checkInputValid() {
         let valid = true;
 
-        if (this.totalUsage < 0) {
+        console.log('totalUsage:', this.template.querySelector(".totalUsage").value);
+        console.log('desiredOffset:', this.template.querySelector(".desiredOffset").value);
+        this.totalUsage = this.template.querySelector(".totalUsage").value;
+        this.desiredOffset = this.template.querySelector(".desiredOffset").value;
+
+        if (!this.totalUsage || this.totalUsage < 0) {
             // Show error
             this.showToast('error', 'Total usage value needs to be greater than 0');
             valid = false;
         }
 
-        if (this.desiredOffset <= 0) {
+        if (!this.desiredOffset || this.desiredOffset <= 0) {
             // Show error
             this.showToast('error', 'Desired offset value needs to be between 0 and 100');
             valid = false;
@@ -102,7 +110,10 @@ export default class OptimizeSystemSize extends LightningElement {
             let inactivePVArrays = 0;
             let invalidTSRFValue = false;
 
-            this.pvArrays
+            console.log(JSON.stringify('this.proposedOffsetObj.pvArrays', undefined, 2));
+            console.log(JSON.stringify(this.proposedOffsetObj.pvArrays, undefined, 2));
+
+            this.proposedOffsetObj.pvArrays
                 .map(pvArray => {
                     if (pvArray.active == 'No' || (pvArray.active == 'Yes' && pvArray.numberOfPanels == 0)) {
                         inactivePVArrays += 1;
@@ -133,11 +144,13 @@ export default class OptimizeSystemSize extends LightningElement {
     checkProposedOffsetValid() {
         if (this.proposedOffsetObj.proposedOffset == -1) {
             // Show error
+            this.showToast('error', 'Desired offset could not be matched, please reconfigure and try again');
             return false;
         }
 
         if (this.proposedOffsetObj.weightedTSRF < this.opportunity.Regional_Weighted_TSRF_Floor__c) {
             // Show warning
+            this.showToast('warning', `Warning, Weighted TSRF of ${this.proposedOffsetObj.weightedTSRF * 100} is below threshold of ${this.opportunity.Regional_Weighted_TSRF_Floor__c}`);
         }
 
         return true;
@@ -158,7 +171,6 @@ export default class OptimizeSystemSize extends LightningElement {
             equipmentSelection: this.equipmentSelection 
         })
             .then(data => {
-                console.log(JSON.stringify(data, undefined, 2));
                 this.selectedPVModule = data;
             })
             .catch(error => {
@@ -183,9 +195,11 @@ export default class OptimizeSystemSize extends LightningElement {
 
             pvArrays.push(pvArray);
 
-            if (pvArray.active == 'Yes') {
+            console.log(JSON.stringify('in mapPVArrays()'))
+            console.log(JSON.stringify(pvArray));
+            if (pvArray.active == 'Yes') { 
                 this.maxNumPanels += pvArray.numberOfPanels;
-                this.currentNumPanels += pvArray.currentNumPanels;
+                this.currentNumPanels += pvArray.numberOfPanels;
             }
         }
 
@@ -197,17 +211,16 @@ export default class OptimizeSystemSize extends LightningElement {
     }
 
     generateProposedOffset(attemptNum, lpoToBeCopied) {
-        console.log(JSON.stringify(0, 2, attemptNum));
-
         let lastProposedOffsetObj = Object.assign({}, lpoToBeCopied);
         let totalProduction = 0;
         let proposedOffset = 0;
         let weightedTSRF = 0;
         let panelRemoved = false;
 
-        let pvArrays = lpoToBeCopied.pvArrays
-            .filter(pvArray => pvArray.active == 'Yes')
-            .map(pvArray => {
+        let pvArrays = lpoToBeCopied.pvArrays.filter(pvArray => pvArray.active == 'Yes');
+
+        pvArrays
+            .forEach(pvArray => {
                 if (attemptNum > 0 && panelRemoved != true && pvArray.numberOfPanels - 1 >= 0) {
                     pvArray.numberOfPanels -= 1;
                     this.currentNumPanels -= 1;   
@@ -215,7 +228,7 @@ export default class OptimizeSystemSize extends LightningElement {
 
                 // calc array tsrf prod factor
                 let tsrfProductionFactor = (this.opportunity.Production_Factor__c * pvArray.tsrf) - this.opportunity.PF_Regional_Adjustment__c;
-                
+
                 // multiply tsrf prod factor by module wattage and array num panels, add to sum
                 totalProduction += pvArray.numberOfPanels * this.selectedPVModule.Wattage__c * tsrfProductionFactor;
 
@@ -225,9 +238,9 @@ export default class OptimizeSystemSize extends LightningElement {
 
         // calc avg of weighted tsrf sum
         weightedTSRF = this.currentNumPanels > 0 ? weightedTSRF / this.currentNumPanels : 0;
-
         // divide calculated total prod by user input total usage
         proposedOffset = totalProduction / this.totalUsage;
+        console.log('proposedOffset:', proposedOffset);
 
         if (attemptNum >= this.maxNumPanels) {
             return {

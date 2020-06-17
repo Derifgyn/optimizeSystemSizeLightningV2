@@ -19,8 +19,20 @@
         </div>
 
         <div>
-            <lightning-input type="number" name="totalUsage" label="Total usage:"></lightning-input>
-            <lightning-input type="number" name="desiredOffset" label="Desired offset %:"></lightning-input>
+            <lightning-input 
+                type="number" 
+                class="totalUsage"
+                name="totalUsage" 
+                label="Total usage:"
+                min="0">
+            </lightning-input>
+            <lightning-input 
+                type="number" 
+                class="desiredOffset"
+                name="desiredOffset" 
+                label="Desired offset %:"
+                min="0">
+            </lightning-input>
             <lightning-record-edit-form
                 record-id={recordId}
                 object-api-name="Opportunity"
