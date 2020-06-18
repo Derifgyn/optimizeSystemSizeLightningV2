@@ -54,6 +54,7 @@
             
             <template if:true={validProposal}>
                 <span>Proposed offset: {proposedOffsetObj.proposedOffset}</span>
+                <span>Weighted TSRF: {proposedOffsetObj.weightedTSRF}</span>
                 <ul class="slds-m-around_medium">
                     <template for:each={proposedOffsetObj.pvArrays} for:item="pvArray">
                         <li key={pvArray.arrayNumber}>
