@@ -1,6 +1,6 @@
 <template>
-    <div class="optimize-system-size">
-        <div class="slds-page-header">
+    <div class="optimize-system-size slds-tabs_card">
+        <div class="slds-text-heading--small">
             <div class="slds-page-header__row">
                 <div class="slds-page-header__col-title">
                     <div class="slds-media">
@@ -37,7 +37,13 @@
                 record-id={recordId}
                 object-api-name="Opportunity"
             >
-                <lightning-input-field field-name="Equipment_Selection__c"></lightning-input-field>
+                <template if:true={opportunity}>
+                    <lightning-input-field 
+                        field-name="Equipment_Selection__c"
+                        onchange={mapPVModule}
+                    >
+                    </lightning-input-field>
+                </template>
             </lightning-record-edit-form>
         </div>
 
@@ -48,6 +54,13 @@
             
             <template if:true={validProposal}>
                 <span>Proposed offset: {proposedOffsetObj.proposedOffset}</span>
+                <ul class="slds-m-around_medium">
+                    <template for:each={proposedOffsetObj.pvArrays} for:item="pvArray">
+                        <li key={pvArray.arrayNumber}>
+                            Array {pvArray.arrayNumber}: {pvArray.numberOfPanels} panels
+                        </li>
+                    </template>
+                </ul>
             </template>
         </div>
 
@@ -62,6 +75,7 @@
                 </lightning-spinner>
             </template>
             <lightning-button
+                class="slds-m-right_large"
                 variant="neutral"
                 name="generate"
                 label="Generate"

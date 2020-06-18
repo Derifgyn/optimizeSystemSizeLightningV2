@@ -8,7 +8,6 @@ import getPVModule from '@salesforce/apex/OptimizeSystemSizeLightningController.
 export default class OptimizeSystemSize extends LightningElement {
     @track opportunity;
     @track selectedPVModule;
-    @track equipmentSelection = '';
     
     @track proposedOffset;
 
@@ -44,9 +43,8 @@ export default class OptimizeSystemSize extends LightningElement {
                 weightedTSRF: 0
             };
 
-            this.mapPVModule();
-
-
+            this.template.querySelector(".totalUsage").value = this.opportunity.Usage__c;
+            this.template.querySelector(".desiredOffset").value = this.opportunity.Desired_Offset__c;
         } else if (error) {
             console.log('Error getting opportunity data test change:');
             console.log(JSON.stringify(error, undefined, 2));
@@ -157,23 +155,34 @@ export default class OptimizeSystemSize extends LightningElement {
     }
 
     // Grab PV Module either from opportunity or default to LG Electronics 350, then map to PV Module object
-    mapPVModule() {
-        this.equipmentSelection = '';
-        
-        if(this.opportunity.Equipment_Selection__c != null) {
-            this.equipmentSelection = this.opportunity.Equipment_Selection__c;
-        } else {
-            this.equipmentSelection = 'LG Electronics 350';
-            this.opportunity.Equipment_Selection__C = this.equipmentSelection;
+    mapPVModule(event) {
+        let equipmentSelection = event.detail.value;
+        console.log('equipmentSelection:');
+        console.log(JSON.stringify(equipmentSelection));
+
+        if (!equipmentSelection) {
+            if (this.opportunity.Equipment_Selection__c != null) {
+                equipmentSelection = this.opportunity.Equipment_Selection__c;
+                console.log('setting equipment selection to opportunity selection:', this.opportunity.Equipment_Selection__c);
+            } else {
+                equipmentSelection = 'LG Electronics 350';
+                this.opportunity.Equipment_Selection__c = equipmentSelection;
+                console.log('defaulting equipment selection:', equipmentSelection);
+            }
         }
         
+        console.log('before get:');
+        console.log(JSON.stringify(equipmentSelection));
         getPVModule({
-            equipmentSelection: this.equipmentSelection 
+            equipmentSelection: equipmentSelection 
         })
             .then(data => {
+                console.log('got pv module:');
+                console.log(JSON.stringify(data));
                 this.selectedPVModule = data;
             })
             .catch(error => {
+                console.log('got error');
                 this.error = true;
             });
     }
