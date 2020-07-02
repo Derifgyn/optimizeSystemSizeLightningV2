@@ -1,9 +1,33 @@
 /* eslint-disable no-console */
 import { LightningElement, api, wire, track } from 'lwc';
+import { getRecord } from 'lightning/uiRecordApi';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent'
 
-import getOpportunity from '@salesforce/apex/OptimizeSystemSizeLightningController.getOpportunity';
 import getPVModule from '@salesforce/apex/OptimizeSystemSizeLightningController.getPVModule';
+import updateOpportunity from '@salesforce/apex/OptimizeSystemSizeLightningController.updateOpportunity';
+
+import ARRAY_1__C from '@salesforce/schema/Opportunity.Array_1__c';
+import ARRAY_2__C from '@salesforce/schema/Opportunity.Array_2__c';
+import ARRAY_3__C from '@salesforce/schema/Opportunity.Array_3__c';
+import ARRAY_4__C from '@salesforce/schema/Opportunity.Array_4__c';
+        
+import ARRAY_1_NUMBER_OF_PANELS__C from '@salesforce/schema/Opportunity.Array_1_Number_of_Panels__c';
+import ARRAY_2_NUMBER_OF_PANELS__C from '@salesforce/schema/Opportunity.Array_2_Number_of_Panels__c';
+import ARRAY_3_NUMBER_OF_PANELS__C from '@salesforce/schema/Opportunity.Array_3_Number_of_Panels__c';
+import ARRAY_4_NUMBER_OF_PANELS__C from '@salesforce/schema/Opportunity.Array_4_Number_of_Panels__c';
+        
+import ARRAY_1_TSRF_INPUT__C from '@salesforce/schema/Opportunity.Array_1_TSRF_Input__c';
+import ARRAY_2_TSRF_INPUT__C from '@salesforce/schema/Opportunity.Array_2_TSRF_Input__c';
+import ARRAY_3_TSRF_INPUT__C from '@salesforce/schema/Opportunity.Array_3_TSRF_Input__c';
+import ARRAY_4_TSRF_INPUT__C from '@salesforce/schema/Opportunity.Array_4_TSRF_Input__c';
+        
+import PRODUCTION_FACTOR__C from '@salesforce/schema/Opportunity.Production_Factor__c';
+import PROPOSED_WEIGHTED_TSRF__C from '@salesforce/schema/Opportunity.Proposed_Weighted_TSRF__c';
+import PF_REGIONAL_ADJUSTMENT__C from '@salesforce/schema/Opportunity.PF_Regional_Adjustment__c';
+import DESIRED_OFFSET__C from '@salesforce/schema/Opportunity.Desired_Offset__c';
+import USAGE__C from '@salesforce/schema/Opportunity.Usage__c';
+import REGIONAL_WEIGHTED_TSRF_FLOOR__C from '@salesforce/schema/Opportunity.Regional_Weighted_TSRF_Floor__c';
+import EQUIPMENT_SELECTION__C from '@salesforce/schema/Opportunity.Equipment_Selection__c';
 
 export default class OptimizeSystemSize extends LightningElement {
     @track opportunity;
@@ -17,21 +41,53 @@ export default class OptimizeSystemSize extends LightningElement {
 
     @track error = false;
     @track generatingProposal = false;
+    
     @track validProposal = false;
+    @track invalidProposal = true;
+
     @track notCalcedProposal = true;
 
     @api recordId;
 
     @wire(
-        getOpportunity,
+        getRecord,
         {
-            opportunityId: '$recordId'
+            recordId: '$recordId',
+            fields: [
+                ARRAY_1__C,
+                ARRAY_2__C,
+                ARRAY_3__C,
+                ARRAY_4__C,
+
+                ARRAY_1_NUMBER_OF_PANELS__C,
+                ARRAY_2_NUMBER_OF_PANELS__C,
+                ARRAY_3_NUMBER_OF_PANELS__C,
+                ARRAY_4_NUMBER_OF_PANELS__C,
+
+                ARRAY_1_TSRF_INPUT__C,
+                ARRAY_2_TSRF_INPUT__C,
+                ARRAY_3_TSRF_INPUT__C,
+                ARRAY_4_TSRF_INPUT__C,
+                
+                PRODUCTION_FACTOR__C,
+                PROPOSED_WEIGHTED_TSRF__C,
+                PF_REGIONAL_ADJUSTMENT__C,
+                DESIRED_OFFSET__C,
+                USAGE__C,
+                REGIONAL_WEIGHTED_TSRF_FLOOR__C,
+                EQUIPMENT_SELECTION__C
+            ]
         }
     )
     opportunityHandler({error, data}) {
         if (data) {
-            console.log(JSON.stringify(data, undefined, 2));
-            this.opportunity = Object.assign({}, data);
+            this.opportunity = {};
+            Object.keys(data.fields).map((v, k) => {
+                this.opportunity[v] = data.fields[v].value;
+            });
+
+            console.log('converted opportunity');
+            console.log(JSON.stringify(this.opportunity, undefined, 2));
 
             this.proposedOffset = 0;
             this.maxNumArrays = 4;
@@ -67,6 +123,7 @@ export default class OptimizeSystemSize extends LightningElement {
             this.proposedOffsetObj = this.generateProposedOffset(0, this.proposedOffsetObj); 
 
             this.validProposal = this.checkProposedOffsetValid();
+            this.invalidProposal = !this.validProposal;
         }
 
         this.generatingProposal = false;
@@ -226,7 +283,7 @@ export default class OptimizeSystemSize extends LightningElement {
         let weightedTSRF = 0;
         let panelRemoved = false;
 
-        let pvArrays = lpoToBeCopied.pvArrays.filter(pvArray => pvArray.active == 'Yes');
+        let pvArrays = lpoToBeCopied.pvArrays.filter(pvArray => pvArray.active == 'Yes' && pvArray.numberOfPanels > 0);
 
         pvArrays
             .forEach(pvArray => {
@@ -278,16 +335,31 @@ export default class OptimizeSystemSize extends LightningElement {
     }
 
     save() {
+        console.log('save kicked off');
         if (this.validProposal) {
-            
-            this.proposedOffset.pvArrays.map(pvArray => {
+            this.proposedOffsetObj.pvArrays.map(pvArray => {
                 this.opportunity[pvArray.numberOfPanelsFieldName] = pvArray.numberOfPanels;
             });
             
             // update opportunity
+        //     const fields = {};
+        //     fields[ARRAY_1_NUMBER_OF_PANELS.fieldApiName] = this.proposedOffsetObj.pvArrays[0].numberOfPanels;
+        //     fields[ARRAY_2_NUMBER_OF_PANELS.fieldApiName] = this.proposedOffsetObj.pvArrays[1].numberOfPanels;
+        //     fields[ARRAY_3_NUMBER_OF_PANELS.fieldApiName] = this.proposedOffsetObj.pvArrays[2].numberOfPanels;
+        //     fields[ARRAY_4_NUMBER_OF_PANELS.fieldApiName] = this.proposedOffsetObj.pvArrays[3].numberOfPanels;
+        //     fields[PROPOSED_WEIGHTED_TSRF.fieldApiName]   = this.proposedOffsetObj.proposedOffset;
             
-            // success msg
-            this.showToast('success', 'Successfully saved proposed offset');
+        //     updateOpportunity({
+        //         opportunityId: this.opportunityId,
+        //         changes: fields
+        //     })
+        //         .then(() => {
+        //             // success msg
+        //             this.showToast('success', 'Successfully saved proposed offset');
+        //         })
+        //         .catch(error => {
+        //             this.showToast('error', 'Error saving proposed offset');
+        //         });
         }
     }
 
