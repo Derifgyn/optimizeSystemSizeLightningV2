@@ -39,6 +39,7 @@
             >
                 <template if:true={opportunity}>
                     <lightning-input-field 
+                        class="equipment-selection"
                         field-name="Equipment_Selection__c"
                         onchange={mapPVModule}
                     >
@@ -47,15 +48,15 @@
             </lightning-record-edit-form>
         </div>
 
-        <div>
+        <div class="proposal-info">
             <template if:true={notCalcedProposal}>
                 <span>Proposed offset: Not yet calculated</span>
             </template>
             
             <template if:true={validProposal}>
-                <span>Proposed offset: {proposedOffsetObj.proposedOffset}</span>
-                <span>Weighted TSRF: {proposedOffsetObj.weightedTSRF}</span>
-                <ul class="slds-m-around_medium">
+                <div>Proposed offset: {proposedOffsetObj.proposedOffset}</div>
+                <div>Weighted TSRF: {proposedOffsetObj.weightedTSRF}</div>
+                <ul class="pv-arrays-list slds-m-around_medium">
                     <template for:each={proposedOffsetObj.pvArrays} for:item="pvArray">
                         <li key={pvArray.arrayNumber}>
                             Array {pvArray.arrayNumber}: {pvArray.numberOfPanels} panels
@@ -86,10 +87,11 @@
             </lightning-button>
             <lightning-button
                 variant="brand"
-                name="update"
+                type="submit"
+                name="save"
                 label="Save"
                 onclick={save}
-                enabled={validProposal}
+                disabled={invalidProposal}
             >
             </lightning-button>
         </div>

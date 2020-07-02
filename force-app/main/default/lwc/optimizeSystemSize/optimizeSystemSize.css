@@ -1,3 +1,15 @@
 .optimizeSystemSize {
     font-size: 10px;
 }
+
+.equipment-selection {
+    padding: 0 !important;
+}
+
+.proposal-info div {
+    margin: 6px 0px;
+}
+
+.proposal-info .pv-arrays-list {
+    margin: 0px;
+}
