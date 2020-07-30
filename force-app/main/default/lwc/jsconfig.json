@@ -1,0 +1,10 @@
+{
+    "compilerOptions": {
+        "baseUrl": ".",
+        "paths": {
+            // "c/optimizeSystemSize": [
+            //     "optimizeSystemSize/optimizeSystemSize.js"
+            // ]
+        }
+    }
+}
