@@ -3,6 +3,6 @@
     <aura:attribute name="equipmentSelection" type="String" />
     <aura:handler name="init" value="{!this}" action="{!c.init}"/> 
     <aura:handler name="change" value="{!v.pageReference}" action="{!c.onPageReferenceChange}"/>
-    <c:optimizeSystemSize opportunityId="{!v.opportunityId}"/>
-    <c:optimizeSystemSize equipmentSelection="{!v.equipmentSelection}"/>
+    <c:systemOptimizer opportunityId="{!v.opportunityId}"/>
+    <c:systemOptimizer equipmentSelection="{!v.equipmentSelection}"/>
 </aura:component>

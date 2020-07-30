@@ -1,4 +1,4 @@
-public with sharing class OptimizeSystemSizeLightningController {
+public with sharing class SystemOptimizerController {
 
     @AuraEnabled(Cacheable=true)
     public static PV_MODULES__C getPVModule(String equipmentSelection) {

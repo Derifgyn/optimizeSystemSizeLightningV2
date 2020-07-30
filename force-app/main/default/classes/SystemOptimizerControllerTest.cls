@@ -1,5 +1,5 @@
 @isTest
-public class OSSLightningControllerTest {
+public class SystemOptimizerControllerTest {
 
     // @isTest static void GetAppointments(){
     //     String userId = UserInfo.getUserId();
@@ -17,7 +17,7 @@ public class OSSLightningControllerTest {
     //     insert eventTwo;
 
     //     Test.startTest();
-    //     List<Site_Assessment__c> appointments = OptimizeSystemSizeLightningController.GetAppointments();
+    //     List<Site_Assessment__c> appointments = SystemOptimizerTest.GetAppointments();
     //     Test.stopTest();
 
     //     system.assertEquals(appointments.size(), 2);

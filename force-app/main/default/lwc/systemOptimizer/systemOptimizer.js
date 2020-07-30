@@ -3,8 +3,8 @@ import { LightningElement, api, wire, track } from 'lwc';
 import { getRecord } from 'lightning/uiRecordApi';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent'
 
-import getPVModule from '@salesforce/apex/OptimizeSystemSizeLightningController.getPVModule';
-import updateOpportunity from '@salesforce/apex/OptimizeSystemSizeLightningController.updateOpportunity';
+import getPVModule from '@salesforce/apex/SystemOptimizer.getPVModule';
+import updateOpportunity from '@salesforce/apex/SystemOptimizer.updateOpportunity';
 
 import ARRAY_1__C from '@salesforce/schema/Opportunity.Array_1__c';
 import ARRAY_2__C from '@salesforce/schema/Opportunity.Array_2__c';
@@ -29,7 +29,7 @@ import USAGE__C from '@salesforce/schema/Opportunity.Usage__c';
 import REGIONAL_WEIGHTED_TSRF_FLOOR__C from '@salesforce/schema/Opportunity.Regional_Weighted_TSRF_Floor__c';
 import EQUIPMENT_SELECTION__C from '@salesforce/schema/Opportunity.Equipment_Selection__c';
 
-export default class OptimizeSystemSize extends LightningElement {
+export default class SystemOptimizer extends LightningElement {
     @track opportunity;
     @track selectedPVModule;
     
