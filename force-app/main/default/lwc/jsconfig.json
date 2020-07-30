@@ -1,9 +1,10 @@
 {
     "compilerOptions": {
+        "experimentalDecorators": true,
         "baseUrl": ".",
         "paths": {
             "c/systemOptimizer": [
-                "systemOptimizer/systemOptimizer.js"
+                "./systemOptimizer/systemOptimizer.js"
             ]
         }
     }

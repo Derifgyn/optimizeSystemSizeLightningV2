@@ -3,8 +3,8 @@ import { LightningElement, api, wire, track } from 'lwc';
 import { getRecord } from 'lightning/uiRecordApi';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent'
 
-import getPVModule from '@salesforce/apex/SystemOptimizer.getPVModule';
-import updateOpportunity from '@salesforce/apex/SystemOptimizer.updateOpportunity';
+import getPVModule from '@salesforce/apex/SystemOptimizerController.getPVModule';
+import updateOpportunity from '@salesforce/apex/SystemOptimizerController.updateOpportunity';
 
 import ARRAY_1__C from '@salesforce/schema/Opportunity.Array_1__c';
 import ARRAY_2__C from '@salesforce/schema/Opportunity.Array_2__c';
