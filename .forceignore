@@ -6,6 +6,7 @@ package.xml
 
 # LWC configuration files
 **/jsconfig.json
+**/tsconfig.json
 **/.eslintrc.json
 
 # LWC Jest

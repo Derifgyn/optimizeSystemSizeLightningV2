@@ -33,19 +33,16 @@
                 label="Desired offset %:"
                 min="0">
             </lightning-input>
-            <lightning-record-edit-form
-                record-id={recordId}
-                object-api-name="Opportunity"
-            >
-                <template if:true={opportunity}>
-                    <lightning-input-field 
-                        class="equipment-selection"
-                        field-name="Equipment_Selection__c"
-                        onchange={mapPVModule}
-                    >
-                    </lightning-input-field>
-                </template>
-            </lightning-record-edit-form>
+            <template if:true={pvModules}>
+                <lightning-combobox
+                    name="pvModule"
+                    label="Equipment Selection"
+                    value={selectedPVModule}
+                    placeholder="Select Equipment"
+                    options={pvModules}
+                    onchange={handlePVModuleSelect}>
+                </lightning-combobox>
+            </template>
         </div>
 
         <div class="proposal-info">

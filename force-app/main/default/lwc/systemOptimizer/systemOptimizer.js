@@ -3,7 +3,8 @@ import { LightningElement, api, wire, track } from 'lwc';
 import { getRecord } from 'lightning/uiRecordApi';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent'
 
-import getPVModule from '@salesforce/apex/SystemOptimizerController.getPVModule';
+import getPVModules from '@salesforce/apex/SystemOptimizerController.getPVModules';
+import getAllowedArrays from '@salesforce/apex/SystemOptimizerController.getAllowedArrays';
 import updateOpportunity from '@salesforce/apex/SystemOptimizerController.updateOpportunity';
 
 import ARRAY_1__C from '@salesforce/schema/Opportunity.Array_1__c';
@@ -29,8 +30,13 @@ import USAGE__C from '@salesforce/schema/Opportunity.Usage__c';
 import REGIONAL_WEIGHTED_TSRF_FLOOR__C from '@salesforce/schema/Opportunity.Regional_Weighted_TSRF_Floor__c';
 import EQUIPMENT_SELECTION__C from '@salesforce/schema/Opportunity.Equipment_Selection__c';
 
+import ACCOUNTID from '@salesforce/schema/Quote.AccountId';
+
 export default class SystemOptimizer extends LightningElement {
-    @track opportunity;
+    @track quote;
+    @track allowedArrays;
+
+    @track pvModules;
     @track selectedPVModule;
     
     @track proposedOffset;
@@ -54,40 +60,26 @@ export default class SystemOptimizer extends LightningElement {
         {
             recordId: '$recordId',
             fields: [
-                ARRAY_1__C,
-                ARRAY_2__C,
-                ARRAY_3__C,
-                ARRAY_4__C,
-
-                ARRAY_1_NUMBER_OF_PANELS__C,
-                ARRAY_2_NUMBER_OF_PANELS__C,
-                ARRAY_3_NUMBER_OF_PANELS__C,
-                ARRAY_4_NUMBER_OF_PANELS__C,
-
-                ARRAY_1_TSRF_INPUT__C,
-                ARRAY_2_TSRF_INPUT__C,
-                ARRAY_3_TSRF_INPUT__C,
-                ARRAY_4_TSRF_INPUT__C,
-                
-                PRODUCTION_FACTOR__C,
-                PROPOSED_WEIGHTED_TSRF__C,
-                PF_REGIONAL_ADJUSTMENT__C,
-                DESIRED_OFFSET__C,
-                USAGE__C,
-                REGIONAL_WEIGHTED_TSRF_FLOOR__C,
-                EQUIPMENT_SELECTION__C
+                ACCOUNTID
+                // PRODUCTION_FACTOR__C,
+                // PROPOSED_WEIGHTED_TSRF__C,
+                // PF_REGIONAL_ADJUSTMENT__C,
+                // DESIRED_OFFSET__C,
+                // USAGE__C,
+                // REGIONAL_WEIGHTED_TSRF_FLOOR__C,
+                // EQUIPMENT_SELECTION__C
             ]
         }
     )
-    opportunityHandler({error, data}) {
+    getQuote({error, data}) {
         if (data) {
-            this.opportunity = {};
+            this.quote = {};
             Object.keys(data.fields).map((v, k) => {
-                this.opportunity[v] = data.fields[v].value;
+                this.quote[v] = data.fields[v].value;
             });
 
-            console.log('converted opportunity');
-            console.log(JSON.stringify(this.opportunity, undefined, 2));
+            console.log('converted quote');
+            console.log(JSON.stringify(this.quote, undefined, 2));
 
             this.proposedOffset = 0;
             this.maxNumArrays = 4;
@@ -99,12 +91,56 @@ export default class SystemOptimizer extends LightningElement {
                 weightedTSRF: 0
             };
 
-            this.template.querySelector(".totalUsage").value = this.opportunity.Usage__c;
-            this.template.querySelector(".desiredOffset").value = this.opportunity.Desired_Offset__c;
+            // this.template.querySelector(".totalUsage").value = this.opportunity.Usage__c;
+            // this.template.querySelector(".desiredOffset").value = this.opportunity.Desired_Offset__c;
+
+
+            // get related objects
+            this.getAllowedArrays(this.quote.AccountId);
         } else if (error) {
-            console.log('Error getting opportunity data test change:');
+            console.log('Error getting quote data:');
             console.log(JSON.stringify(error, undefined, 2));
         }
+    }
+
+    @wire(
+        getPVModules
+    )
+    getPVModules({error, data}) {
+        if (data) {
+            this.pvModulesLoaded = true;
+            this.pvModules = data.map(pvModule => {
+                return {
+                    ...pvModule,
+                    label: pvModule.Name,
+                    value: pvModule.Id
+                }
+            });
+        } else if (error) {
+            console.log('Error getting pv module data:');
+            console.log(JSON.stringify(error, undefined, 2));
+        }
+    }
+    
+    getAllowedArrays(accountId) {
+        getAllowedArrays({
+            accountId: accountId
+        })
+            .then(data => {
+                console.log('got allowed arrays:');
+                console.log(JSON.stringify(data));
+                this.allowedArrays = data;
+            })
+            .catch(error => {
+                console.log('got error');
+                this.error = true;
+            });
+    }
+
+    handlePVModuleSelect(event) {
+        console.log('handlePVModuleSelect');
+        this.selectedPVModule = this.pvModules.find(pvArray => pvArray.Id === event.detail.value);
+        console.log(JSON.stringify(this.selectedPVModule, undefined, 2));
     }
 
     generateProposal() {
@@ -112,7 +148,7 @@ export default class SystemOptimizer extends LightningElement {
         this.generatingProposal = true;
         this.proposedOffsetObj = {
             proposedOffset: 0,
-            pvArrays: this.mapPVArrays(),
+            pvArrays: this.allowedArrays,
             weightedTSRF: 0
         };
 
@@ -209,71 +245,6 @@ export default class SystemOptimizer extends LightningElement {
         }
 
         return true;
-    }
-
-    // Grab PV Module either from opportunity or default to LG Electronics 350, then map to PV Module object
-    mapPVModule(event) {
-        let equipmentSelection = event.detail.value;
-        console.log('equipmentSelection:');
-        console.log(JSON.stringify(equipmentSelection));
-
-        if (!equipmentSelection) {
-            if (this.opportunity.Equipment_Selection__c != null) {
-                equipmentSelection = this.opportunity.Equipment_Selection__c;
-                console.log('setting equipment selection to opportunity selection:', this.opportunity.Equipment_Selection__c);
-            } else {
-                equipmentSelection = 'LG Electronics 350';
-                this.opportunity.Equipment_Selection__c = equipmentSelection;
-                console.log('defaulting equipment selection:', equipmentSelection);
-            }
-        }
-        
-        console.log('before get:');
-        console.log(JSON.stringify(equipmentSelection));
-        getPVModule({
-            equipmentSelection: equipmentSelection 
-        })
-            .then(data => {
-                console.log('got pv module:');
-                console.log(JSON.stringify(data));
-                this.selectedPVModule = data;
-            })
-            .catch(error => {
-                console.log('got error');
-                this.error = true;
-            });
-    }
-
-    // Loop through opportunity fields to generate list of pvArrays 
-    mapPVArrays() {
-        this.maxNumPanels = 0;
-        this.currentNumPanels = 0;
-        let pvArrays = [];
-
-        for (let i = 0; i < this.maxNumArrays; i++) { 
-            let pvArray = {
-                arrayNumber: i + 1,
-                active: this.opportunity[`Array_${i + 1}__c`],
-                numberOfPanels: this.opportunity[`Array_${i + 1}_Number_of_Panels__c`],
-                numberOfPanelsFieldName: `Array_${i + 1}_TSRF_Input__c`,
-                tsrf: this.opportunity[`Array_${i + 1}_TSRF_Input__c`]
-            }
-
-            pvArrays.push(pvArray);
-
-            console.log(JSON.stringify('in mapPVArrays()'))
-            console.log(JSON.stringify(pvArray));
-            if (pvArray.active == 'Yes') { 
-                this.maxNumPanels += pvArray.numberOfPanels;
-                this.currentNumPanels += pvArray.numberOfPanels;
-            }
-        }
-
-        pvArrays.sort((a, b) =>
-           a.tsrf - b.tsrf
-        );
-
-        return pvArrays;
     }
 
     generateProposedOffset(attemptNum, lpoToBeCopied) {
