@@ -11,7 +11,7 @@ public with sharing class SystemOptimizerController {
             System.debug('Site:');
             System.debug(site.Id);
 
-            for (Allowed_Array__c allowedArray: [SELECT Id, Site__c, Name, Number_of_Panels__c, TSRF__c FROM Allowed_Array__c WHERE Site__c = :site.Id ORDER BY TSRF__c DESC]) {
+            for (Allowed_Array__c allowedArray: [SELECT Id, Site__c, Name, Number_of_Panels__c, TSRF__c FROM Allowed_Array__c WHERE Site__c = :site.Id ORDER BY TSRF__c ASC]) {
                 System.debug('Allowed array:');
                 System.debug(allowedArray.Id);
                 System.debug(allowedArray.Name);
@@ -23,6 +23,29 @@ public with sharing class SystemOptimizerController {
     }
 
     @AuraEnabled(Cacheable=true)
+    public static Opportunity getOpportunityFields(String opportunityId){
+        Opportunity opportunity = new Opportunity();
+
+        opportunity = [
+            SELECT
+                Id,
+                Production_Factor__C,
+                Proposed_Weighted_TSRF__C,
+                PF_Regional_Adjustment__C,
+                Regional_Weighted_TSRF_Floor__c,
+                Usage__c,
+                Desired_Offset__c
+            FROM 
+                Opportunity 
+            WHERE
+                Id = :opportunityId
+        ];
+
+        return opportunity;
+    }
+
+
+    @AuraEnabled(Cacheable=true)
     public static List<PV_Modules__c> getPVModules() {
         List<PV_Modules__c> pvModules = [
             SELECT 
@@ -30,9 +53,12 @@ public with sharing class SystemOptimizerController {
                 Manufacturer__c,
                 PTC_Rating__c,
                 Name,
-                Wattage__c 
+                Wattage__c ,
+                Active__c
             FROM 
                 PV_Modules__c
+            WHERE
+                Active__c = True
             ORDER BY
                 Name
             DESC 
@@ -45,11 +71,7 @@ public with sharing class SystemOptimizerController {
     }
 
     @AuraEnabled
-    public static void updateOpportunity(String opportunityId, Map<String, Object> changes) {
-
-        System.debug(opportunityId);
-        System.debug(changes);
-
+    public static String createOrUpdatePvSystem(String quoteId, Map<String, Object> changes){
         Integer keyCounter = 0;
         String soqlString = 'SELECT Id, ';
         for (String key : changes.keySet()) {
@@ -62,15 +84,61 @@ public with sharing class SystemOptimizerController {
                 soqlString += ' ';
             }
         }
-        soqlString += 'FROM Opportunity WHERE Id = \'' + opportunityId + '\' FOR UPDATE';
-        
-        Opportunity opportunityToUpdate = Database.query(soqlString);
-        System.debug(opportunityToUpdate);
+        soqlString += 'FROM PV_System__c WHERE Quote__r.Id = \'' + quoteId + '\' FOR UPDATE';
+
+        System.debug('createOrUpdatePvSystem soqlString:');
+        System.debug(soqlString);
+        PV_System__c[] existingPvSystemArr = Database.query(soqlString);
+        PV_System__c pvSystem = new PV_System__c();
+
+        if(existingPvSystemArr.size() > 0) {
+            pvSystem = existingPvSystemArr[0];
+        }
+
+        System.debug(pvSystem);
         for (String key: changes.keySet()) {
             System.debug(key);
             System.debug(changes.get(key));
-            opportunityToUpdate.put(key, changes.get(key));
+            pvSystem.put(key, changes.get(key));
         }
-        update opportunityToUpdate;
+
+        // need to resplit, can't update account id on existing obj
+
+        if(existingPvSystemArr.size() > 0) {
+            update pvSystem;
+
+            // delete arrays associated to pv system
+            List<PV_Array__c> pvArrays = new List<PV_Array__c>();
+        
+            pvArrays = [
+                SELECT
+                    Id,
+                    PV_System__r.Id
+                FROM
+                    PV_Array__c
+                WHERE
+                    PV_System__r.Id = :pvSystem.Id
+            ];
+
+            delete pvArrays;
+        } else {
+            insert pvSystem;
+        }
+
+        return pvSystem.Id;
+    }
+
+    @AuraEnabled
+    public static String createPvArray(Map<String, Object> changes){
+        PV_Array__c pvArray = new PV_Array__c();
+        System.debug(pvArray);
+        for (String key: changes.keySet()) {
+            System.debug(key);
+            System.debug(changes.get(key));
+            pvArray.put(key, changes.get(key));
+        }
+        insert pvArray;
+
+        return pvArray.id;
     }
 }
