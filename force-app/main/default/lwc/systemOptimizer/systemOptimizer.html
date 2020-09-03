@@ -52,7 +52,7 @@
             
             <template if:true={validProposal}>
                 <div>Proposed offset: <lightning-formatted-number value={proposedOffsetObj.proposedOffset} format-style="percent"></lightning-formatted-number></div>
-                <div>Weighted TSRF: {proposedOffsetObj.weightedTSRF}</div>
+                <div>Weighted TSRF: <lightning-formatted-number value={proposedOffsetObj.weightedTSRF} format-style="decimal" maximum-fraction-digits="0"></lightning-formatted-number></div>
                 <ul class="pv-arrays-list slds-m-around_medium">
                     <template for:each={proposedOffsetObj.pvArrays} for:item="pvArray">
                         <li key={pvArray.Id}>
@@ -83,6 +83,7 @@
             >
             </lightning-button>
             <lightning-button
+                class="slds-m-right_large"
                 variant="brand"
                 type="submit"
                 name="save"
@@ -91,6 +92,15 @@
                 disabled={invalidProposal}
             >
             </lightning-button>
+            <template if:true={saveSuccess}>
+                <lightning-button
+                    variant="neutral"
+                    name="redirect"
+                    label="Go to PV System Page"
+                    onclick={handlePvSystemRedirect}
+                >
+                </lightning-button>
+            </template>
         </div>
     </div>
 </template>

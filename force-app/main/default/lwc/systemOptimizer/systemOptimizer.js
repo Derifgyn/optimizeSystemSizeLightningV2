@@ -2,6 +2,7 @@
 /* eslint-disable no-else-return */
 /* eslint-disable no-console */
 import { LightningElement, api, wire, track } from 'lwc';
+import { NavigationMixin } from 'lightning/navigation';
 import { getRecord } from 'lightning/uiRecordApi';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent'
 
@@ -10,38 +11,19 @@ import getAllowedArrays from '@salesforce/apex/SystemOptimizerController.getAllo
 import getOpportunityFields from '@salesforce/apex/SystemOptimizerController.getOpportunityFields';
 import createOrUpdatePvSystem from '@salesforce/apex/SystemOptimizerController.createOrUpdatePvSystem';
 import createPvArray from '@salesforce/apex/SystemOptimizerController.createPvArray';
-
-// import updateOpportunity from '@salesforce/apex/SystemOptimizerController.updateOpportunity';
-
-// import ARRAY_1__C from '@salesforce/schema/Opportunity.Array_1__c';
-// import ARRAY_2__C from '@salesforce/schema/Opportunity.Array_2__c';
-// import ARRAY_3__C from '@salesforce/schema/Opportunity.Array_3__c';
-// import ARRAY_4__C from '@salesforce/schema/Opportunity.Array_4__c';
-        
-// import ARRAY_1_NUMBER_OF_PANELS__C from '@salesforce/schema/Opportunity.Array_1_Number_of_Panels__c';
-// import ARRAY_2_NUMBER_OF_PANELS__C from '@salesforce/schema/Opportunity.Array_2_Number_of_Panels__c';
-// import ARRAY_3_NUMBER_OF_PANELS__C from '@salesforce/schema/Opportunity.Array_3_Number_of_Panels__c';
-// import ARRAY_4_NUMBER_OF_PANELS__C from '@salesforce/schema/Opportunity.Array_4_Number_of_Panels__c';
-        
-// import ARRAY_1_TSRF_INPUT__C from '@salesforce/schema/Opportunity.Array_1_TSRF_Input__c';
-// import ARRAY_2_TSRF_INPUT__C from '@salesforce/schema/Opportunity.Array_2_TSRF_Input__c';
-// import ARRAY_3_TSRF_INPUT__C from '@salesforce/schema/Opportunity.Array_3_TSRF_Input__c';
-// import ARRAY_4_TSRF_INPUT__C from '@salesforce/schema/Opportunity.Array_4_TSRF_Input__c';
-        
-// import PRODUCTION_FACTOR__C from '@salesforce/schema/Opportunity.Production_Factor__c';
-// import PROPOSED_WEIGHTED_TSRF__C from '@salesforce/schema/Opportunity.Proposed_Weighted_TSRF__c';
-// import PF_REGIONAL_ADJUSTMENT__C from '@salesforce/schema/Opportunity.PF_Regional_Adjustment__c';
-// import DESIRED_OFFSET__C from '@salesforce/schema/Opportunity.Desired_Offset__c';
-// import USAGE__C from '@salesforce/schema/Opportunity.Usage__c';
-// import REGIONAL_WEIGHTED_TSRF_FLOOR__C from '@salesforce/schema/Opportunity.Regional_Weighted_TSRF_Floor__c';
-// import EQUIPMENT_SELECTION__C from '@salesforce/schema/Opportunity.Equipment_Selection__c';
+import populateQuoteSystemLookup from '@salesforce/apex/SystemOptimizerController.populateQuoteSystemLookup';
 
 import ACCOUNTID from '@salesforce/schema/Quote.AccountId';
 import OPPORTUNITYID from '@salesforce/schema/Quote.OpportunityId';
+import CREATEDBYID from '@salesforce/schema/Quote.CreatedById';
+import SYSTEM__C from '@salesforce/schema/Quote.System__c';
+import ID from '@salesforce/schema/Quote.Id';
 
 import PV_MODULES__C from '@salesforce/schema/PV_System__c.PV_Modules__c';
 import QUOTE__C from '@salesforce/schema/PV_System__c.Quote__c';
-import PARENT__ACCOUNT__C from '@salesforce/schema/PV_System__c.Parent_Account__c';
+import PARENT_ACCOUNT__C from '@salesforce/schema/PV_System__c.Parent_Account__c';
+import ENPHASE_USER_ID__C from '@salesforce/schema/PV_System__c.Enphase_User_Id__c';
+import WEIGHTED_TSRF__C from '@salesforce/schema/PV_System__c.Weighted_TSRF__c';
 
 import ARRAY_SIZE__C from '@salesforce/schema/PV_Array__c.Array_Size__c';
 import NUMBER_OF_PANELS__C from '@salesforce/schema/PV_Array__c.Number_of_Panels__c';
@@ -49,7 +31,7 @@ import SELECTED_EQUIPMENT__C from '@salesforce/schema/PV_Array__c.Selected_Equip
 import TSRF__C from '@salesforce/schema/PV_Array__c.TSRF__c';
 import PV_SYSTEM__C from '@salesforce/schema/PV_Array__c.PV_System__c';
 
-export default class SystemOptimizer extends LightningElement {
+export default class SystemOptimizer extends NavigationMixin(LightningElement) {
     @track quote;
     @track allowedArrays;
     @track opportunity;
@@ -65,7 +47,10 @@ export default class SystemOptimizer extends LightningElement {
 
     @track error = false;
     @track generatingProposal = false;
-    
+    @track saveSuccess = false;
+    @track pvSystemUrl;
+    @track pvSystemPageRef;
+
     @track validProposal = false;
     @track invalidProposal = true;
 
@@ -79,7 +64,8 @@ export default class SystemOptimizer extends LightningElement {
             recordId: '$recordId',
             fields: [
                 ACCOUNTID,
-                OPPORTUNITYID
+                OPPORTUNITYID,
+                CREATEDBYID
                 // PRODUCTION_FACTOR__C,
                 // PROPOSED_WEIGHTED_TSRF__C,
                 // PF_REGIONAL_ADJUSTMENT__C,
@@ -164,7 +150,6 @@ export default class SystemOptimizer extends LightningElement {
                 console.log(JSON.stringify(data));
                 this.allowedArrays = data;
                 console.log('reducing allowed arrays');
-                this.currentNumPanels = this.maxNumPanels = this.allowedArrays.reduce((a, b) => { return a + b.Number_of_Panels__c}, 0);
                 console.log('reduced allowed arrays, this.currentNumPanels:');
                 console.log(this.currentNumPanels);
             })
@@ -247,7 +232,7 @@ export default class SystemOptimizer extends LightningElement {
 
     // Perform proposed offset check before returning, and show relevant messages
     checkProposedOffsetValid() {
-        if (this.proposedOffsetObj.proposedOffset == -1) {
+        if (this.proposedOffsetObj.proposedOffset === -1) {
             // Show error
             this.showToast('error', 'Desired offset could not be matched, please reconfigure and try again');
             return false;
@@ -277,7 +262,11 @@ export default class SystemOptimizer extends LightningElement {
             console.log(JSON.stringify('input valid', 0, 2));
             console.log('this.totalUsage:', this.totalUsage);
 
+            this.currentNumPanels = this.maxNumPanels = this.allowedArrays.reduce((a, b) => { return a + b.Number_of_Panels__c}, 0);
             this.proposedOffsetObj = this.generateProposedOffset(0, this.proposedOffsetObj); 
+
+            console.log('done generating proposed offset obj');
+            console.log(JSON.stringify(this.proposedOffsetObj, undefined, 2));
 
             this.validProposal = this.checkProposedOffsetValid();
             this.invalidProposal = !this.validProposal;
@@ -323,6 +312,7 @@ export default class SystemOptimizer extends LightningElement {
 
         // calc avg of weighted tsrf sum
         weightedTSRF = this.currentNumPanels > 0 ? weightedTSRF / this.currentNumPanels : 0;
+        
         // divide calculated total prod by user input total usage
         proposedOffset = totalProduction / this.totalUsage;
         console.log('totalProduction:', totalProduction);
@@ -355,11 +345,12 @@ export default class SystemOptimizer extends LightningElement {
         }
     }
 
-    save() {
+    async save() {
+        this.saveSuccess = false;
         console.log('save kicked off');
+        console.log(JSON.stringify(this.proposedOffsetObj, undefined, 2));
+
         if (this.validProposal) {
-
-
             /**
              * create new pv system or update existing pv system with:
              *  - Selected equipment
@@ -372,70 +363,70 @@ export default class SystemOptimizer extends LightningElement {
              *  - PV System Id
              *  - TSRF
              **/ 
-            
-            
-            const pvSystemFields = {};
-            pvSystemFields[PV_MODULES__C.fieldApiName] = this.selectedPVModule.Id;
-            pvSystemFields[QUOTE__C.fieldApiName] = this.recordId;
-            pvSystemFields[PARENT__ACCOUNT__C .fieldApiName] = this.quote.AccountId;
+            try {
+                const pvSystemFields = {};
+                pvSystemFields[PV_MODULES__C.fieldApiName] = this.selectedPVModule.Id;
+                pvSystemFields[QUOTE__C.fieldApiName] = this.recordId;
+                pvSystemFields[PARENT_ACCOUNT__C.fieldApiName] = this.quote.AccountId;
+                pvSystemFields[ENPHASE_USER_ID__C.fieldApiName] = this.quote.CreatedById;
+                pvSystemFields[WEIGHTED_TSRF__C.fieldApiName] = this.proposedOffsetObj.weightedTSRF;
 
-            createOrUpdatePvSystem({
-                quoteId: this.recordId,
-                changes: pvSystemFields
-            })
-                .then(pvSystemId => {
-                    this.showToast('success', 'Successfully saved pv system');
-
-                    this.proposedOffset.pvArrays.forEach(pvArray => {
-                        const pvArrayFields = {};
-                        pvArrayFields[ARRAY_SIZE__C] = pvArray.Wattage__c;
-                        pvArrayFields[NUMBER_OF_PANELS__C] = pvArray.Number_of_Panels__c;
-                        pvArrayFields[SELECTED_EQUIPMENT__C] = this.selectedPVModule.Id;
-                        pvArrayFields[TSRF__C] = pvArray.TSRF__c;
-                        pvArrayFields[PV_SYSTEM__C] = pvSystemId;
-
-                        createPvArray({
-                            changes: pvArrayFields
-                        })
-                            .then(pvArrayId => {
-                                this.showToast('success', `Successfully saved pv array ${pvArrayId} associated with system`);
-                            })
-                            .catch((e) => {
-                                console.log(JSON.stringify(e, undefined, 2));
-                                this.showToast('error', 'Error creating pv array');
-                            })
-                    });
-                })
-                .catch((e) => {
-                    console.log(JSON.stringify(e, undefined, 2));
-                    this.showToast('error', 'Error creating or updating pv system');
+                let pvSystemId = await createOrUpdatePvSystem({
+                    quoteId: this.recordId,
+                    changes: pvSystemFields
                 });
+                this.showToast('success', 'Successfully saved pv system');
 
-            
+                const quoteFields = {};
+                quoteFields[SYSTEM__C.fieldApiName] = pvSystemId;
+                quoteFields[ID.fieldApiName] = this.recordId;
+                await populateQuoteSystemLookup({
+                    quoteId: this.recordId,
+                    changes: quoteFields
+                });
+                this.showToast('success', `Successfully associated quote with new pv system`);
 
-            // this.proposedOffsetObj.pvArrays.map(pvArray => {
-            //     this.opportunity[pvArray.numberOfPanelsFieldName] = pvArray.numberOfPanels;
-            // });
-            
-            // update opportunity
-        //     const fields = {};
-        //     fields[ARRAY_1_NUMBER_OF_PANELS.fieldApiName] = this.proposedOffsetObj.pvArrays[0].numberOfPanels;
-        //     fields[ARRAY_2_NUMBER_OF_PANELS.fieldApiName] = this.proposedOffsetObj.pvArrays[1].numberOfPanels;
-        //     fields[ARRAY_3_NUMBER_OF_PANELS.fieldApiName] = this.proposedOffsetObj.pvArrays[2].numberOfPanels;
-        //     fields[ARRAY_4_NUMBER_OF_PANELS.fieldApiName] = this.proposedOffsetObj.pvArrays[3].numberOfPanels;
-        //     fields[PROPOSED_WEIGHTED_TSRF.fieldApiName]   = this.proposedOffsetObj.proposedOffset;
-            
-        //     updateOpportunity({
-        //         opportunityId: this.opportunityId,
-        //         changes: fields
-        //     })
-        //         .then(() => {
-        //             // success msg
-        //             this.showToast('success', 'Successfully saved proposed offset');
-        //         })
-        //         .catch(error => {
-        //             this.showToast('error', 'Error saving proposed offset');
-        //         });
+                await this.proposedOffsetObj.pvArrays
+                    .filter(pvArray => pvArray.Number_of_Panels__c > 0)
+                    .forEach(async pvArray => {
+                        console.log('looping though proposed offset pv arrays');
+                        const pvArrayFields = {};
+                        pvArrayFields[ARRAY_SIZE__C.fieldApiName] = pvArray.Wattage__c;
+                        pvArrayFields[NUMBER_OF_PANELS__C.fieldApiName] = pvArray.Number_of_Panels__c;
+                        pvArrayFields[SELECTED_EQUIPMENT__C.fieldApiName] = this.selectedPVModule.Id;
+                        pvArrayFields[TSRF__C.fieldApiName] = pvArray.TSRF__c;
+                        pvArrayFields[PV_SYSTEM__C.fieldApiName] = pvSystemId;
+
+                        console.log('in pv array for each');
+                        console.log(JSON.stringify(pvArrayFields, undefined, 2));
+                        
+                        const pvArrayId = await createPvArray({
+                            changes: pvArrayFields
+                        });
+
+                        this.showToast('success', `Successfully saved pv array ${pvArrayId} associated with system`);
+                    });
+
+                console.log('completed all saving!!!!!!!!');
+
+                this.pvSystemPageRef = {
+                    type: 'standard__recordPage',
+                    attributes: {
+                        recordId: pvSystemId,
+                        objectApiName: 'PV_System__c',
+                        actionName: 'view'
+                    }
+                };
+                
+                this[NavigationMixin.GenerateUrl](this.pvSystemPageRef)
+                    .then(url => { this.pvSystemUrl = url });
+
+                this.saveSuccess = true;
+
+            } catch (e) {
+                console.log(JSON.stringify(e, undefined, 2));
+                this.showToast('error', e);
+            }
         }
     }
 
@@ -448,6 +439,14 @@ export default class SystemOptimizer extends LightningElement {
         this.dispatchEvent(toast);
     }
 
+    handlePvSystemRedirect(evt) {
+        // Stop the event's default behavior.
+        // Stop the event from bubbling up in the DOM.
+        evt.preventDefault();
+        evt.stopPropagation();
+        // Navigate to the Account Home page.
+        this[NavigationMixin.Navigate](this.pvSystemPageRef);
+    }
     /**
      * TODO:
      * - Active array checking?

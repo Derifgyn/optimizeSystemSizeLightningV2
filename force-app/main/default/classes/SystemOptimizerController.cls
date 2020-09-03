@@ -72,40 +72,32 @@ public with sharing class SystemOptimizerController {
 
     @AuraEnabled
     public static String createOrUpdatePvSystem(String quoteId, Map<String, Object> changes){
-        Integer keyCounter = 0;
-        String soqlString = 'SELECT Id, ';
-        for (String key : changes.keySet()) {
-            keyCounter++;
-            soqlString += key;
-
-            if(keyCounter < changes.size()) {
-                soqlString += ', ';
-            } else {
-                soqlString += ' ';
-            }
-        }
-        soqlString += 'FROM PV_System__c WHERE Quote__r.Id = \'' + quoteId + '\' FOR UPDATE';
-
+        String soqlString = generateSoqlStringForUpdate('PV_System__c', 'Quote__r.Id', quoteId, changes);
+ 
         System.debug('createOrUpdatePvSystem soqlString:');
         System.debug(soqlString);
         PV_System__c[] existingPvSystemArr = Database.query(soqlString);
-        PV_System__c pvSystem = new PV_System__c();
+        PV_System__c pvSystem;
 
         if(existingPvSystemArr.size() > 0) {
-            pvSystem = existingPvSystemArr[0];
-        }
+            pvSystem = new PV_System__c();
 
-        System.debug(pvSystem);
-        for (String key: changes.keySet()) {
-            System.debug(key);
-            System.debug(changes.get(key));
-            pvSystem.put(key, changes.get(key));
-        }
-
-        // need to resplit, can't update account id on existing obj
-
-        if(existingPvSystemArr.size() > 0) {
-            update pvSystem;
+            for (String key: changes.keySet()) {
+                System.debug(key);
+                System.debug(changes.get(key));
+                if(key != 'Parent_Account__c') {
+                    pvSystem.put(key, changes.get(key));
+                }
+            }
+            pvSystem.put('Id', existingPvSystemArr[0].Id);
+            System.debug(pvSystem);
+ 
+            try {
+                update pvSystem;
+            } catch(DmlException e) {
+                System.debug('error updating pv system');
+                System.debug(e);
+            }
 
             // delete arrays associated to pv system
             List<PV_Array__c> pvArrays = new List<PV_Array__c>();
@@ -120,25 +112,92 @@ public with sharing class SystemOptimizerController {
                     PV_System__r.Id = :pvSystem.Id
             ];
 
-            delete pvArrays;
-        } else {
-            insert pvSystem;
-        }
+            try {
+                delete pvArrays;
+                return pvSystem.Id;
+            } catch(DmlException e) {
+                System.debug('error deleting associated pv arrays');
+                System.debug(e);
+                throw e;
+            }
 
-        return pvSystem.Id;
+        } else {
+            pvSystem = (PV_System__c)populateObjectForUpdate(new PV_System__c(), changes);
+
+            try {
+                insert pvSystem;
+                return pvSystem.Id;
+            } catch(DmlException e) {
+                System.debug('error inserting new pv system');
+                System.debug(e);
+                throw e;
+            }
+        }
     }
 
     @AuraEnabled
     public static String createPvArray(Map<String, Object> changes){
-        PV_Array__c pvArray = new PV_Array__c();
-        System.debug(pvArray);
+        PV_Array__c pvArray = (PV_Array__c)populateObjectForUpdate(new PV_Array__c(), changes);
+
+        try {
+            insert pvArray;
+            return pvArray.id;
+        } catch(DmlException e) {
+            System.debug('error inserting pvArray');
+            System.debug(e);
+            throw e;
+        }
+    }
+
+    @AuraEnabled
+    public static String populateQuoteSystemLookup(String quoteId, Map<String, Object> changes){
+        String soqlString = generateSoqlStringForUpdate('Quote', 'Id', quoteId, changes);
+        System.debug('Generated quote system lookup string');
+        System.debug(soqlString);
+        Quote quote = (Quote)populateObjectForUpdate(new Quote(), changes);
+       
+        System.debug('Populated quote object for update');
+        System.debug(quote);
+        
+        try {
+            update quote;
+            System.debug('successfully updated quote: ' + quote.id);
+            return quote.id;
+        } catch(DmlException e) {
+            System.debug('error updating quote');
+            System.debug(e);
+            throw e;
+        }
+    }
+
+    private static String generateSoqlStringForUpdate(String objectForUpdate, String matchField, String id, Map<String, Object> changes) {
+        Integer keyCounter = 0;
+        String soqlString = 'SELECT Id, ';
+        for (String key : changes.keySet()) {
+            keyCounter++;
+
+            if(key != '')
+            soqlString += key;
+
+            if(keyCounter < changes.size()) {
+                soqlString += ', ';
+            } else {
+                soqlString += ' ';
+            }
+        }
+        soqlString += 'FROM ' + objectForUpdate + ' WHERE ' + matchField + ' = \'' + id + '\' FOR UPDATE';
+
+        return soqlString;
+    }
+
+    private static SObject populateObjectForUpdate(SObject objectForUpdate, Map<String, Object> changes) {
+        System.debug(objectForUpdate);
         for (String key: changes.keySet()) {
             System.debug(key);
             System.debug(changes.get(key));
-            pvArray.put(key, changes.get(key));
+            objectForUpdate.put(key, changes.get(key));
         }
-        insert pvArray;
 
-        return pvArray.id;
+        return objectForUpdate;
     }
 }
