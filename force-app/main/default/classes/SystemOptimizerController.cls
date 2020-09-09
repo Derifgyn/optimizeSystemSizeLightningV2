@@ -135,41 +135,6 @@ public with sharing class SystemOptimizerController {
         }
     }
 
-    @AuraEnabled
-    public static String createPvArray(Map<String, Object> changes){
-        PV_Array__c pvArray = (PV_Array__c)populateObjectForUpdate(new PV_Array__c(), changes);
-
-        try {
-            insert pvArray;
-            return pvArray.id;
-        } catch(DmlException e) {
-            System.debug('error inserting pvArray');
-            System.debug(e);
-            throw e;
-        }
-    }
-
-    @AuraEnabled
-    public static String populateQuoteSystemLookup(String quoteId, Map<String, Object> changes){
-        String soqlString = generateSoqlStringForUpdate('Quote', 'Id', quoteId, changes);
-        System.debug('Generated quote system lookup string');
-        System.debug(soqlString);
-        Quote quote = (Quote)populateObjectForUpdate(new Quote(), changes);
-       
-        System.debug('Populated quote object for update');
-        System.debug(quote);
-        
-        try {
-            update quote;
-            System.debug('successfully updated quote: ' + quote.id);
-            return quote.id;
-        } catch(DmlException e) {
-            System.debug('error updating quote');
-            System.debug(e);
-            throw e;
-        }
-    }
-
     private static String generateSoqlStringForUpdate(String objectForUpdate, String matchField, String id, Map<String, Object> changes) {
         Integer keyCounter = 0;
         String soqlString = 'SELECT Id, ';

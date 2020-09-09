@@ -4,14 +4,14 @@
 import { LightningElement, api, wire, track } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
 import { getRecord } from 'lightning/uiRecordApi';
+import { updateRecord } from 'lightning/uiRecordApi';
+import { createRecord } from 'lightning/uiRecordApi';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent'
 
 import getPVModules from '@salesforce/apex/SystemOptimizerController.getPVModules';
 import getAllowedArrays from '@salesforce/apex/SystemOptimizerController.getAllowedArrays';
 import getOpportunityFields from '@salesforce/apex/SystemOptimizerController.getOpportunityFields';
 import createOrUpdatePvSystem from '@salesforce/apex/SystemOptimizerController.createOrUpdatePvSystem';
-import createPvArray from '@salesforce/apex/SystemOptimizerController.createPvArray';
-import populateQuoteSystemLookup from '@salesforce/apex/SystemOptimizerController.populateQuoteSystemLookup';
 
 import ACCOUNTID from '@salesforce/schema/Quote.AccountId';
 import OPPORTUNITYID from '@salesforce/schema/Quote.OpportunityId';
@@ -25,6 +25,7 @@ import PARENT_ACCOUNT__C from '@salesforce/schema/PV_System__c.Parent_Account__c
 import ENPHASE_USER_ID__C from '@salesforce/schema/PV_System__c.Enphase_User_Id__c';
 import WEIGHTED_TSRF__C from '@salesforce/schema/PV_System__c.Weighted_TSRF__c';
 
+import PV_ARRAY__C from '@salesforce/schema/PV_Array__c';
 import ARRAY_SIZE__C from '@salesforce/schema/PV_Array__c.Array_Size__c';
 import NUMBER_OF_PANELS__C from '@salesforce/schema/PV_Array__c.Number_of_Panels__c';
 import SELECTED_EQUIPMENT__C from '@salesforce/schema/PV_Array__c.Selected_Equipment__c';
@@ -377,13 +378,10 @@ export default class SystemOptimizer extends NavigationMixin(LightningElement) {
                 });
                 this.showToast('success', 'Successfully saved pv system');
 
-                const quoteFields = {};
-                quoteFields[SYSTEM__C.fieldApiName] = pvSystemId;
+                let quoteFields = {};
                 quoteFields[ID.fieldApiName] = this.recordId;
-                await populateQuoteSystemLookup({
-                    quoteId: this.recordId,
-                    changes: quoteFields
-                });
+                quoteFields[SYSTEM__C.fieldApiName] = pvSystemId
+                await updateRecord({fields: quoteFields});
                 this.showToast('success', `Successfully associated quote with new pv system`);
 
                 await this.proposedOffsetObj.pvArrays
@@ -400,11 +398,12 @@ export default class SystemOptimizer extends NavigationMixin(LightningElement) {
                         console.log('in pv array for each');
                         console.log(JSON.stringify(pvArrayFields, undefined, 2));
                         
-                        const pvArrayId = await createPvArray({
-                            changes: pvArrayFields
+                        const createdPvArray = await createRecord({
+                            apiName: PV_ARRAY__C.objectApiName,
+                            fields: pvArrayFields
                         });
 
-                        this.showToast('success', `Successfully saved pv array ${pvArrayId} associated with system`);
+                        this.showToast('success', `Successfully saved pv array ${createdPvArray.id} associated with system`);
                     });
 
                 console.log('completed all saving!!!!!!!!');
@@ -424,6 +423,7 @@ export default class SystemOptimizer extends NavigationMixin(LightningElement) {
                 this.saveSuccess = true;
 
             } catch (e) {
+                console.log('error:');
                 console.log(JSON.stringify(e, undefined, 2));
                 this.showToast('error', e);
             }
