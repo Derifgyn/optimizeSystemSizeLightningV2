@@ -21,8 +21,8 @@ import ID from '@salesforce/schema/Quote.Id';
 
 import PV_MODULES__C from '@salesforce/schema/PV_System__c.PV_Modules__c';
 import QUOTE__C from '@salesforce/schema/PV_System__c.Quote__c';
-import PARENT_ACCOUNT__C from '@salesforce/schema/PV_System__c.Parent_Account__c';
-import ENPHASE_USER_ID__C from '@salesforce/schema/PV_System__c.Enphase_User_Id__c';
+import Account__c from '@salesforce/schema/PV_System__c.Account__c';
+import STATUS__C from '@salesforce/schema/PV_System__c.Status__c';
 import WEIGHTED_TSRF__C from '@salesforce/schema/PV_System__c.Weighted_TSRF__c';
 
 import PV_ARRAY__C from '@salesforce/schema/PV_Array__c';
@@ -279,36 +279,50 @@ export default class SystemOptimizer extends NavigationMixin(LightningElement) {
     generateProposedOffset(attemptNum, lpoToBeCopied) {
         console.log('---------------------------');
         console.log('generating proposed offset, attempt num:', attemptNum);
-
         let lastProposedOffsetObj = Object.assign({}, lpoToBeCopied);
+        console.log('lastProposedOffsetObject before any math:');
+        console.log(JSON.stringify(lastProposedOffsetObj, undefined, 2));
         let totalProduction = 0;
         let proposedOffset = 0;
         let weightedTSRF = 0;
         let panelRemoved = false;
 
         // let pvArrays = lpoToBeCopied.pvArrays.filter(pvArray => pvArray.active == 'Yes' && pvArray.numberOfPanels > 0);
-        let pvArrays = lpoToBeCopied.pvArrays;
+        let pvArrays = [];
         console.log('pvArraysLength:', pvArrays.length);
         console.log('this.opportunity.Production_Factor__c:', this.opportunity.Production_Factor__c)
         console.log('this.currentNumPanels: ', this.currentNumPanels);
 
-        pvArrays
-            .forEach(pvArray => {
-                if (attemptNum > 0 && panelRemoved !== true && pvArray.Number_of_Panels__c - 1 >= 0) {
-                    console.log(`removing panel from array with ${pvArray.TSRF__c} TSRF`);
-                    pvArray.Number_of_Panels__c -= 1;
+        lpoToBeCopied.pvArrays
+            .forEach((pvArray, index) => {
+                pvArrays[index] = {
+                    Id: pvArray.Id,
+                    Site__c: pvArray.Site__c,
+                    Name: pvArray.Name,
+                    Number_of_Panels__c: pvArray.Number_of_Panels__c,
+                    TSRF__c: pvArray.TSRF__c
+                };
+
+                console.log(`pvArray:`);
+                console.log(JSON.stringify(pvArrays[index], undefined, 2));
+                if (attemptNum > 0 && panelRemoved !== true && pvArrays[index].Number_of_Panels__c - 1 >= 0) {
+                    console.log(`removing panel from array with ${pvArrays[index].TSRF__c} TSRF`);
+                    pvArrays[index].Number_of_Panels__c -= 1;
                     this.currentNumPanels -= 1;
                     panelRemoved = true;
                 }
 
+                console.log('pv array after potential removal:');
+                console.log(JSON.stringify(pvArrays[index], undefined, 2));
+
                 // calc array tsrf prod factor
-                let tsrfProductionFactor = (this.opportunity.Production_Factor__c * pvArray.TSRF__c) - this.opportunity.PF_Regional_Adjustment__c;
+                let tsrfProductionFactor = (this.opportunity.Production_Factor__c * pvArrays[index].TSRF__c) - this.opportunity.PF_Regional_Adjustment__c;
 
                 // multiply tsrf prod factor by module wattage and array num panels, add to sum
-                totalProduction += pvArray.Number_of_Panels__c * this.selectedPVModule.Wattage__c * tsrfProductionFactor;
+                totalProduction += pvArrays[index].Number_of_Panels__c * this.selectedPVModule.Wattage__c * tsrfProductionFactor;
 
                 // multiply array tsrf by array number of panels, add to sum
-                weightedTSRF += pvArray.TSRF__c * pvArray.Number_of_Panels__c;
+                weightedTSRF += pvArrays[index].TSRF__c * pvArrays[index].Number_of_Panels__c;
             });
 
         // calc avg of weighted tsrf sum
@@ -321,15 +335,29 @@ export default class SystemOptimizer extends NavigationMixin(LightningElement) {
         console.log('proposedOffset:', proposedOffset, ' = ', totalProduction, ' / ', this.totalUsage);
 
         if (attemptNum >= this.maxNumPanels) {
+            console.log('END OF GENERATOR: out of attempts');
             return {
                 proposedOffset: -1,
                 pvArrays,
                 weightedTSRF: -1
             };
         } else if (proposedOffset <= (this.desiredOffset / 100)) {
+            console.log('END OF GENERATOR: proposed offset less than desired offset, returning');
+
             let lessThanProposedOffsetVariance = Math.abs((this.desiredOffset / 100) - proposedOffset);
             let moreThanProposedOffsetVariance = Math.abs(lastProposedOffsetObj.proposedOffset - (this.desiredOffset / 100));
 
+            if(lessThanProposedOffsetVariance <= moreThanProposedOffsetVariance ) {
+                console.log('lessThanProposedOffsetVariance <= moreThanProposedOffsetVariance, RETURNING new:');
+                console.log(JSON.stringify({
+                    proposedOffset,
+                    pvArrays,
+                    weightedTSRF
+                }, undefined, 2));
+            } else {
+                console.log('lessThanProposedOffsetVariance > moreThanProposedOffsetVariance, RETURNING old:');
+                console.log(JSON.stringify(lastProposedOffsetObj, undefined, 2));
+            }
             return lessThanProposedOffsetVariance <= moreThanProposedOffsetVariance ? 
                 {
                     proposedOffset,
@@ -338,6 +366,8 @@ export default class SystemOptimizer extends NavigationMixin(LightningElement) {
                 } :
                 lastProposedOffsetObj;
         } else {
+            console.log('END OF GENERATOR: retrying');
+
             return this.generateProposedOffset(attemptNum + 1, {
                 proposedOffset,
                 pvArrays,
@@ -368,9 +398,9 @@ export default class SystemOptimizer extends NavigationMixin(LightningElement) {
                 const pvSystemFields = {};
                 pvSystemFields[PV_MODULES__C.fieldApiName] = this.selectedPVModule.Id;
                 pvSystemFields[QUOTE__C.fieldApiName] = this.recordId;
-                pvSystemFields[PARENT_ACCOUNT__C.fieldApiName] = this.quote.AccountId;
-                pvSystemFields[ENPHASE_USER_ID__C.fieldApiName] = this.quote.CreatedById;
+                pvSystemFields[Account__c.fieldApiName] = this.quote.AccountId;
                 pvSystemFields[WEIGHTED_TSRF__C.fieldApiName] = this.proposedOffsetObj.weightedTSRF;
+                pvSystemFields[STATUS__C.fieldApiName] = 'Proposed';
 
                 let pvSystemId = await createOrUpdatePvSystem({
                     quoteId: this.recordId,

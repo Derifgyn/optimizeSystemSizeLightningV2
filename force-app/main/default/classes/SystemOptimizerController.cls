@@ -79,13 +79,16 @@ public with sharing class SystemOptimizerController {
         PV_System__c[] existingPvSystemArr = Database.query(soqlString);
         PV_System__c pvSystem;
 
+        System.debug(existingPvSystemArr);
+
         if(existingPvSystemArr.size() > 0) {
+            System.debug('existingPvSystem');
             pvSystem = new PV_System__c();
 
             for (String key: changes.keySet()) {
                 System.debug(key);
                 System.debug(changes.get(key));
-                if(key != 'Parent_Account__c') {
+                if(key != 'Account__c') {
                     pvSystem.put(key, changes.get(key));
                 }
             }
@@ -122,6 +125,7 @@ public with sharing class SystemOptimizerController {
             }
 
         } else {
+            System.debug('notExistingPvSystem');
             pvSystem = (PV_System__c)populateObjectForUpdate(new PV_System__c(), changes);
 
             try {

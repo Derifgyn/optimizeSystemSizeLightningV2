@@ -1,0 +1,8 @@
+Update_Array_Production
+( PV_System__r.PV_Modules__r.Wattage__c  *  Number_of_Panels__c ) * ( TSRF__c *  PV_System__r.Production_Factor__c -  PV_System__r.Production_Factor_Regional_Adjustment__c )
+
+Production_Factor__c
+Account__r.Production_Factor__c
+
+Production_Factor_Regional_Adjustment
+Account__r.Production_Factor_Regional_Adjustment__c
