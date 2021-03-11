@@ -18,6 +18,19 @@
             </div>
         </div>
 
+        <div class="allowed-arrays-info">
+            <template if:true={invalidAllowedArrays}>
+                <div class="slds-var-m-top_x-small slds-var-m-bottom_x-small">Add Allowable Arrays to Optimize this System</div>
+                <lightning-button
+                    variant="neutral"
+                    name="redirect"
+                    label="Go to Site Page"
+                    onclick={handleSiteRedirect}
+                >
+                </lightning-button>
+            </template>
+        </div>
+
         <div>
             <lightning-input 
                 type="number" 

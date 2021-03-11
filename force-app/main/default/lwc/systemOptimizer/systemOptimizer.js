@@ -9,6 +9,7 @@ import { createRecord } from 'lightning/uiRecordApi';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent'
 
 import getPVModules from '@salesforce/apex/SystemOptimizerController.getPVModules';
+import getSiteId from '@salesforce/apex/SystemOptimizerController.getSiteId';
 import getAllowedArrays from '@salesforce/apex/SystemOptimizerController.getAllowedArrays';
 import getOpportunityFields from '@salesforce/apex/SystemOptimizerController.getOpportunityFields';
 import createOrUpdatePvSystem from '@salesforce/apex/SystemOptimizerController.createOrUpdatePvSystem';
@@ -51,11 +52,18 @@ export default class SystemOptimizer extends NavigationMixin(LightningElement) {
     @track saveSuccess = false;
     @track pvSystemUrl;
     @track pvSystemPageRef;
+    @track siteUrl;
+    @track sitePageRef;
 
     @track validProposal = false;
     @track invalidProposal = true;
 
+    @track invalidAllowedArrays = false;
+
     @track notCalcedProposal = true;
+
+    @track MIN_VALID_WTSRF = 60;
+    @track MIN_VALID_SYSTEM_PANEL_SIZE = 9;
 
     @api recordId;
 
@@ -100,6 +108,7 @@ export default class SystemOptimizer extends NavigationMixin(LightningElement) {
             // get related objects
             this.getAllowedArrays(this.quote.AccountId);
             this.getOpportunityFields(this.quote.OpportunityId);
+            this.getSiteId(this.quote.AccountId);
         } else if (error) {
             console.log('Error getting quote data:');
             console.log(JSON.stringify(error, undefined, 2));
@@ -134,7 +143,7 @@ export default class SystemOptimizer extends NavigationMixin(LightningElement) {
                 console.log(JSON.stringify(data));
                 this.opportunity = data;
                 this.template.querySelector(".totalUsage").value = this.opportunity.Usage__c;
-                this.template.querySelector(".desiredOffset").value = this.opportunity.Desired_Offset__c;
+                this.template.querySelector(".desiredOffset").value = this.opportunity.Desired_Offset__c ? this.opportunity.Desired_Offset__c : 100;
             })
             .catch(error => {
                 console.log('got error');
@@ -150,6 +159,11 @@ export default class SystemOptimizer extends NavigationMixin(LightningElement) {
                 console.log('got allowed arrays:');
                 console.log(JSON.stringify(data));
                 this.allowedArrays = data;
+
+                if (!this.allowedArrays || this.allowedArrays.length === 0) {
+                    this.invalidAllowedArrays = true;
+                }
+
                 console.log('reducing allowed arrays');
                 console.log('reduced allowed arrays, this.currentNumPanels:');
                 console.log(this.currentNumPanels);
@@ -158,6 +172,29 @@ export default class SystemOptimizer extends NavigationMixin(LightningElement) {
                 console.log('got error');
                 this.error = true;
             });
+    }
+
+    getSiteId(accountId) {
+        getSiteId({
+            accountId: accountId
+        })
+            .then(siteId => {
+                this.sitePageRef = {
+                    type: 'standard__recordPage',
+                    attributes: {
+                        recordId: siteId,
+                        objectApiName: 'Site',
+                        actionName: 'view'
+                    }
+                };
+                
+                this[NavigationMixin.GenerateUrl](this.sitePageRef)
+                    .then(url => { this.siteUrl = url });
+            })
+            .catch(error => {
+                console.log('got error');
+                this.error = true;
+            })
     }
 
     handlePVModuleSelect(event) {
@@ -195,7 +232,7 @@ export default class SystemOptimizer extends NavigationMixin(LightningElement) {
             this.showToast('warning', 'Desired offset > 100%, please make sure your entry is correct');
         }
 
-        if (this.selectedPVModule == undefined || this.selectedPVModule.Name == '') {
+        if (this.selectedPVModule === undefined || this.selectedPVModule.Name == '') {
             // Show error
             this.showToast('error', 'Equipment Selection needs to be chosen');
             valid = false;
@@ -233,15 +270,28 @@ export default class SystemOptimizer extends NavigationMixin(LightningElement) {
 
     // Perform proposed offset check before returning, and show relevant messages
     checkProposedOffsetValid() {
-        if (this.proposedOffsetObj.proposedOffset === -1) {
+        const invalidProposedOffset = this.proposedOffsetObj.proposedOffset === -1;
+        const invalidWTSRF = this.proposedOffsetObj.weightedTSRF < this.MIN_VALID_WTSRF;
+        const invalidNumPanels = this.currentNumPanels < this.MIN_VALID_SYSTEM_PANEL_SIZE;
+        const invalid = invalidProposedOffset || invalidWTSRF || invalidNumPanels;
+
+        if (invalidProposedOffset) {
             // Show error
             this.showToast('error', 'Desired offset could not be matched, please reconfigure and try again');
-            return false;
         }
 
-        if (this.proposedOffsetObj.weightedTSRF < this.opportunity.Regional_Weighted_TSRF_Floor__c) {
-            // Show warning
-            this.showToast('warning', `Warning, Weighted TSRF of ${this.proposedOffsetObj.weightedTSRF * 100} is below threshold of ${this.opportunity.Regional_Weighted_TSRF_Floor__c}`);
+        if (invalidWTSRF) {
+            // Show error
+            this.showToast('error', `Weighted TSRF of ${Math.round(this.proposedOffsetObj.weightedTSRF)} is below threshold of ${this.MIN_VALID_WTSRF}`);
+        }
+
+        if (invalidNumPanels) {
+            // Show error
+            this.showToast('error', `${Math.round(this.currentNumPanels)} panels is below threshold of ${this.MIN_VALID_SYSTEM_PANEL_SIZE} panels`);
+        }
+
+        if (invalid) {
+            return false;
         }
 
         return true;
@@ -477,6 +527,17 @@ export default class SystemOptimizer extends NavigationMixin(LightningElement) {
         // Navigate to the Account Home page.
         this[NavigationMixin.Navigate](this.pvSystemPageRef);
     }
+    
+    handleSiteRedirect(evt) {
+        // Stop the event's default behavior.
+        // Stop the event from bubbling up in the DOM.
+        evt.preventDefault();
+        evt.stopPropagation();
+        // Navigate to the Account Home page.
+        this[NavigationMixin.Navigate](this.sitePageRef);
+    }
+
+
     /**
      * TODO:
      * - Active array checking?

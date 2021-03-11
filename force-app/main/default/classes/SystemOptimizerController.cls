@@ -44,6 +44,12 @@ public with sharing class SystemOptimizerController {
         return opportunity;
     }
 
+    @AuraEnabled(Cacheable=true)
+    public static string getSiteId(String accountId){
+        Site__c site = [SELECT Id, Account__c FROM Site__c WHERE Account__c = :accountId LIMIT 1];
+
+        return site.Id;
+    }
 
     @AuraEnabled(Cacheable=true)
     public static List<PV_Modules__c> getPVModules() {

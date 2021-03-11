@@ -13,3 +13,7 @@
 .proposal-info .pv-arrays-list {
     margin: 0px;
 }
+
+.allowed-arrays-info {
+    color: orange;
+}

@@ -49,6 +49,21 @@ public class SystemOptimizerControllerTest {
         system.assertEquals(allowedArrays.get(0).TSRF__c, 65);
     }
 
+    @isTest static void getSiteId() {
+        Account acct = configureAccount();
+
+        Site__c site = new Site__c(
+            Account__c = acct.Id
+        );
+        insert site;
+
+        Test.startTest();
+        String siteId = SystemOptimizerController.getSiteId(acct.Id);
+        Test.stopTest();
+
+        system.assertEquals(siteId,  site.Id);
+    }
+
     @isTest static void getOpportunityFields() {
         Account acct = configureAccount();
 
