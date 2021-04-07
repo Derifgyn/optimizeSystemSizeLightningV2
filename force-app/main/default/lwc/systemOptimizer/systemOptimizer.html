@@ -79,40 +79,42 @@
         <div class="details-footer slds-m-top_small">
             <template if:true={disabled}>
                 <lightning-spinner 
-                    class="slds-is-relative slds-m-right_x-large"
+                    class="slds-is-relative slds-m-right_x-large saving-spinner"
                     variant="brand"
                     alternative-text="Loading" 
                     size="small"
                 >
                 </lightning-spinner>
             </template>
-            <lightning-button
-                class="slds-m-right_large"
-                variant="neutral"
-                name="generate"
-                label="Generate"
-                onclick={generateProposal}
-                disabled={generatingProposal}
-            >
-            </lightning-button>
-            <lightning-button
-                class="slds-m-right_large"
-                variant="brand"
-                type="submit"
-                name="save"
-                label="Save"
-                onclick={save}
-                disabled={invalidProposal}
-            >
-            </lightning-button>
-            <template if:true={saveSuccess}>
+            <template if:false={disabled}>
                 <lightning-button
+                    class="slds-m-right_large"
                     variant="neutral"
-                    name="redirect"
-                    label="Go to PV System Page"
-                    onclick={handlePvSystemRedirect}
+                    name="generate"
+                    label="Generate"
+                    onclick={generateProposal}
+                    disabled={generatingProposal}
                 >
                 </lightning-button>
+                <lightning-button
+                    class="slds-m-right_large"
+                    variant="brand"
+                    type="submit"
+                    name="save"
+                    label="Save"
+                    onclick={save}
+                    disabled={invalidProposal}
+                >
+                </lightning-button>
+                <template if:true={saveSuccess}>
+                    <lightning-button
+                        variant="neutral"
+                        name="redirect"
+                        label="Go to PV System Page"
+                        onclick={handlePvSystemRedirect}
+                    >
+                    </lightning-button>
+                </template>
             </template>
         </div>
     </div>

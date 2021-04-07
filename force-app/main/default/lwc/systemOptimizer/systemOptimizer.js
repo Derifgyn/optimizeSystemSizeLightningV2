@@ -7,6 +7,7 @@ import { getRecord } from 'lightning/uiRecordApi';
 import { updateRecord } from 'lightning/uiRecordApi';
 import { createRecord } from 'lightning/uiRecordApi';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent'
+import { getRecordNotifyChange } from 'lightning/uiRecordApi';
 
 import getPVModules from '@salesforce/apex/SystemOptimizerController.getPVModules';
 import getSiteId from '@salesforce/apex/SystemOptimizerController.getSiteId';
@@ -47,6 +48,7 @@ export default class SystemOptimizer extends NavigationMixin(LightningElement) {
     @track maxNumPanels;
     @track currentNumPanels;
 
+    @track disabled = false;
     @track error = false;
     @track generatingProposal = false;
     @track saveSuccess = false;
@@ -427,7 +429,9 @@ export default class SystemOptimizer extends NavigationMixin(LightningElement) {
     }
 
     async save() {
+        this.disabled = true;
         this.saveSuccess = false;
+        console.log('disabled:', this.disabled);
         console.log('save kicked off');
         console.log(JSON.stringify(this.proposedOffsetObj, undefined, 2));
 
@@ -456,13 +460,13 @@ export default class SystemOptimizer extends NavigationMixin(LightningElement) {
                     quoteId: this.recordId,
                     changes: pvSystemFields
                 });
-                this.showToast('success', 'Successfully saved pv system');
+                // this.showToast('success', 'Successfully saved pv system');
 
                 let quoteFields = {};
                 quoteFields[ID.fieldApiName] = this.recordId;
                 quoteFields[SYSTEM__C.fieldApiName] = pvSystemId
                 await updateRecord({fields: quoteFields});
-                this.showToast('success', `Successfully associated quote with new pv system`);
+                // this.showToast('success', `Successfully associated quote with new pv system`);
 
                 await this.proposedOffsetObj.pvArrays
                     .filter(pvArray => pvArray.Number_of_Panels__c > 0)
@@ -483,11 +487,13 @@ export default class SystemOptimizer extends NavigationMixin(LightningElement) {
                             fields: pvArrayFields
                         });
 
-                        this.showToast('success', `Successfully saved pv array ${createdPvArray.id} associated with system`);
+                        // this.showToast('success', `Successfully saved pv array ${createdPvArray.id} associated with system`);
                     });
 
                 console.log('completed all saving!!!!!!!!');
 
+                this.showToast('success', 'Successfully saved optimize system size information');
+                
                 this.pvSystemPageRef = {
                     type: 'standard__recordPage',
                     attributes: {
@@ -501,10 +507,16 @@ export default class SystemOptimizer extends NavigationMixin(LightningElement) {
                     .then(url => { this.pvSystemUrl = url });
 
                 this.saveSuccess = true;
+                this.disabled = false;
 
-            } catch (e) {
+                getRecordNotifyChange([{
+                    recordId: this.recordId
+                }]);
+            } catch (e) {                
                 console.log('error:');
                 console.log(JSON.stringify(e, undefined, 2));
+                
+                this.disabled = false;
                 this.showToast('error', e);
             }
         }

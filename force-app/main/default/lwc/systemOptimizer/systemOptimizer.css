@@ -17,3 +17,9 @@
 .allowed-arrays-info {
     color: orange;
 }
+
+.saving-spinner {
+    display: block;
+    margin: 25px auto;
+    height: 1px;
+}
