@@ -14,6 +14,7 @@ import getSiteId from '@salesforce/apex/SystemOptimizerController.getSiteId';
 import getAllowedArrays from '@salesforce/apex/SystemOptimizerController.getAllowedArrays';
 import getOpportunityFields from '@salesforce/apex/SystemOptimizerController.getOpportunityFields';
 import createOrUpdatePvSystem from '@salesforce/apex/SystemOptimizerController.createOrUpdatePvSystem';
+import createProjectFromSite from '@salesforce/apex/SystemOptimizerController.createProjectFromSite';
 
 import ACCOUNTID from '@salesforce/schema/Quote.AccountId';
 import OPPORTUNITYID from '@salesforce/schema/Quote.OpportunityId';
@@ -33,6 +34,16 @@ import NUMBER_OF_PANELS__C from '@salesforce/schema/PV_Array__c.Number_of_Panels
 import SELECTED_EQUIPMENT__C from '@salesforce/schema/PV_Array__c.Selected_Equipment__c';
 import TSRF__C from '@salesforce/schema/PV_Array__c.TSRF__c';
 import PV_SYSTEM__C from '@salesforce/schema/PV_Array__c.PV_System__c';
+
+import SITE from '@salesforce/schema/SITE__c';
+import ACCOUNT from '@salesforce/schema/ACCOUNT__c';
+import PROJECT from '@salesforce/schema/Project_New__c'
+import CONTACT_FIRST_NAME__C from '@salesforce/schema/Project_New__c.Contact_First_name__c'
+import CONTACT_LAST_NAME__C from '@salesforce/schema/Project_New__c.Contact_Last_name__c'
+import ADDRESS from '@salesforce/schema/Project_New__c.Address__c'
+import PROJECT_NAME from '@salesforce/schema/Project_New__c.Name'
+import PROJECT_TYPE from '@salesforce/schema/Project_New__c.Type'
+import OWNER_ID from '@salesforce/schema/Project_New__c.OwnerId'
 
 export default class SystemOptimizer extends NavigationMixin(LightningElement) {
     @track quote;
@@ -547,6 +558,36 @@ export default class SystemOptimizer extends NavigationMixin(LightningElement) {
         evt.stopPropagation();
         // Navigate to the Account Home page.
         this[NavigationMixin.Navigate](this.sitePageRef);
+    }
+
+    async createAuroraProject(){
+        const auroraProject = {};
+        auroraProject[CONTACT_FIRST_NAME__C.fieldApiName] = SITE.ACCOUNT.CONTACT_FIRST_NAME__C;
+        auroraProject[CONTACT_LAST_NAME__C.fieldApiName] = SITE.ACCOUNT.CONTACT_LAST_NAME__C;
+        auroraProject[PROJECT_NAME.fieldApiName] = SITE.ACCOUNT.ADDRESS;
+        auroraProject[ADDRESS.fieldApiName] = SITE.ACCOUNT.ADDRESS;
+        auroraProject[PROJECT_TYPE.fieldApiName] = 'Residential';
+        auroraProject[OWNER_ID.fieldApiName] = '8e68fcd1-af22-4c67-b286-c59f9101d239';
+
+        const createdAuroraProject = await createProjectFromSite({
+            apiName: PROJECT.objectApiName,
+            fields: auroraProject
+        });
+
+        console.log("New Aurora Project created: " + createdAuroraProject.PROJECT.ID);
+        this.showToast('success', 'Successfully created new Aurora Project');
+
+        this.sitePageRef = {
+            type: 'standard__recordPage',
+            attributes: {
+                recordId: createdAuroraProject.PROJECT.ID,
+                objectApiName: 'PROJECT.objectApiName',
+                actionName: 'view'
+            }
+        };
+        this[NavigationMixin.GenerateUrl](this.sitePageRef)
+                    .then(url => { this.siteUrl = url });
+
     }
 
 
