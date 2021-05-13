@@ -145,6 +145,20 @@ public with sharing class SystemOptimizerController {
         }
     }
 
+    @AuraEnabled
+    public static string createProjectFromSite(Map<String, Object> changes){
+        try {
+            PROJECT__c project;
+            project = (PROJECT__c)populateObjectForUpdate(new PROJECT__c(), changes);
+            insert project;
+            return project.Id;
+
+        } catch (Exception e) {
+            System.debug('Error creating new project');
+            throw new AuraHandledException(e.getMessage());
+        }
+    }
+
     private static String generateSoqlStringForUpdate(String objectForUpdate, String matchField, String id, Map<String, Object> changes) {
         Integer keyCounter = 0;
         String soqlString = 'SELECT Id, ';
