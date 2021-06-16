@@ -130,6 +130,13 @@ export default class SystemOptimizer extends NavigationMixin(LightningElement) {
                     value: pvModule.Id
                 }
             });
+            
+            // Default to LG Neon 2
+            this.selectedPVModule = this.pvModules.find(pvModule => pvModule.Default_System_Optimizer_Panel__c === true) || undefined;
+
+            setTimeout(async () => {
+                this.template.querySelector('.equipmentSelection').value = this.selectedPVModule?.Id || undefined;
+            }, 500);
         } else if (error) {
             console.log('Error getting pv module data:');
             console.log(JSON.stringify(error, undefined, 2));

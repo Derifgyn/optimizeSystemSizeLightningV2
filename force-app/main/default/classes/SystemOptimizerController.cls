@@ -60,7 +60,8 @@ public with sharing class SystemOptimizerController {
                 PTC_Rating__c,
                 Name,
                 Wattage__c ,
-                Active__c
+                Active__c,
+                Default_System_Optimizer_Panel__c
             FROM 
                 PV_Modules__c
             WHERE
